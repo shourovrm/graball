@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Graball</string>
+    <string name="share_activity_label">Download with Graball</string>
+</resources>
