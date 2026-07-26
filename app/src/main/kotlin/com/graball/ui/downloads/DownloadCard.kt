@@ -55,6 +55,7 @@ fun DownloadCard(
     onCancel: () -> Unit,
     onRetry: () -> Unit,
     onDelete: () -> Unit,
+    onDeleteFile: () -> Unit,
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -104,7 +105,10 @@ fun DownloadCard(
             }
             if (entity.status == "DONE") {
                 Spacer(Modifier.height(8.dp))
-                TextButton(onClick = onDelete) { Text("Remove from list") }
+                Row {
+                    TextButton(onClick = onDelete) { Text("Remove from list") }
+                    TextButton(onClick = onDeleteFile) { Text("Delete file") }
+                }
             }
         }
     }

@@ -3,6 +3,7 @@ package com.graball.download
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.ContentValues
 import android.content.Context
@@ -14,9 +15,11 @@ import android.os.Build
 import android.os.Environment
 import android.os.IBinder
 import android.os.StatFs
+import android.provider.DocumentsContract
 import android.provider.MediaStore
 import android.webkit.MimeTypeMap
 import com.graball.cookies.CookieExport
+import com.graball.prefs.Prefs
 import com.graball.resolve.classifyError
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLException
@@ -30,6 +33,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.coroutines.resume
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -91,6 +95,15 @@ class DownloadService : Service() {
         }
     }
 
+    // tapping either notification just brings the app to front -- no deep link needed
+    private fun contentIntent(): PendingIntent = PendingIntent.getActivity(
+        this, 0,
+        Intent(this, com.graball.MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        },
+        PendingIntent.FLAG_IMMUTABLE,
+    )
+
     private fun buildNotification(text: String, progress: Int): Notification =
         Notification.Builder(this, CHANNEL_ID)
             .setContentTitle("Graball")
@@ -98,6 +111,7 @@ class DownloadService : Service() {
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setOngoing(true)
             .setProgress(100, progress, false)
+            .setContentIntent(contentIntent())
             .build()
 
     private fun notifyProgress(list: List<DownloadEntity>) {
@@ -117,6 +131,7 @@ class DownloadService : Service() {
             .setContentText("All downloads finished")
             .setSmallIcon(android.R.drawable.stat_sys_download_done)
             .setOngoing(false)
+            .setContentIntent(contentIntent())
             .build()
         getSystemService(NotificationManager::class.java).notify(NOTIF_ID, notif)
     }
@@ -281,15 +296,43 @@ class DownloadService : Service() {
         else -> MediaStore.Downloads.EXTERNAL_CONTENT_URI to "Download/Graball"
     }
 
-    /** yt-dlp writes to cacheDir; this is the one atomic MediaStore publish + temp delete. */
+    private fun kindFor(mime: String): String = when {
+        mime.startsWith("video/") -> "video"
+        mime.startsWith("audio/") -> "audio"
+        mime.startsWith("image/") -> "image"
+        else -> "other"
+    }
+
+    /** yt-dlp writes to cacheDir; this is the one atomic publish + temp delete. Prefers a
+     * user-picked SAF folder for this media kind; falls back to MediaStore on any failure
+     * (unset pref, revoked permission, io error) so a finished download is never lost. */
     private suspend fun publishToMediaStore(entity: DownloadEntity, tmpDir: File): Uri? {
         val file = findOutputFile(tmpDir, entity.id) ?: return null
         val mime = mimeFor(file.extension)
+        val treeUri = Prefs.folderFor(this, kindFor(mime)).first()
+        if (treeUri != null) {
+            publishToTree(file, mime, treeUri)?.let { return it }
+        }
         return try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) publishModern(file, mime) else publishLegacy(file, mime)
         } catch (e: Exception) {
             null
         }
+    }
+
+    /** Copies into a user-picked SAF tree via DocumentsContract. Null on any failure -- caller
+     * falls back to MediaStore. */
+    private fun publishToTree(file: File, mime: String, treeUriStr: String): Uri? = try {
+        val tree = Uri.parse(treeUriStr)
+        val treeDocUri = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        val docUri = DocumentsContract.createDocument(contentResolver, treeDocUri, mime, file.name)
+            ?: return null
+        val out = contentResolver.openOutputStream(docUri) ?: return null
+        out.use { FileInputStream(file).use { inp -> inp.copyTo(it) } }
+        file.delete()
+        docUri
+    } catch (e: Exception) {
+        null
     }
 
     private fun publishModern(file: File, mime: String): Uri? {
