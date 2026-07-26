@@ -174,7 +174,9 @@ class DownloadService : Service() {
                 ensureLoopRunning() // row landed while we were shutting down
                 return@launch
             }
-            finishNotification()
+            // delete-all mid-run empties the table: "All downloads finished" would be a lie then
+            if (dao.countAll() > 0) finishNotification()
+            else getSystemService(NotificationManager::class.java).cancel(NOTIF_ID)
             stopForeground(STOP_FOREGROUND_DETACH)
             stopSelf(lastStartId) // ignored if a newer start command arrived — its loop lives on
         }
@@ -327,8 +329,14 @@ class DownloadService : Service() {
         val treeDocUri = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
         val docUri = DocumentsContract.createDocument(contentResolver, treeDocUri, mime, file.name)
             ?: return null
-        val out = contentResolver.openOutputStream(docUri) ?: return null
-        out.use { FileInputStream(file).use { inp -> inp.copyTo(it) } }
+        try {
+            val out = contentResolver.openOutputStream(docUri) ?: return null
+            out.use { FileInputStream(file).use { inp -> inp.copyTo(it) } }
+        } catch (e: Exception) {
+            // don't leave a partial document in the user's folder
+            runCatching { DocumentsContract.deleteDocument(contentResolver, docUri) }
+            throw e
+        }
         file.delete()
         docUri
     } catch (e: Exception) {

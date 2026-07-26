@@ -99,10 +99,16 @@ private class SniffingClient(
         return null
     }
 
+    private var lastUpgraded: String? = null
+
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val url = request.url
         if (httpsOnly() && url.scheme == "http") {
-            view.loadUrl("https://" + url.toString().removePrefix("http://"))
+            val target = "https://" + url.toString().removePrefix("http://")
+            // http-only site redirecting back down would loop forever: one upgrade attempt per URL
+            if (target == lastUpgraded) return false
+            lastUpgraded = target
+            view.loadUrl(target)
             return true
         }
         return false

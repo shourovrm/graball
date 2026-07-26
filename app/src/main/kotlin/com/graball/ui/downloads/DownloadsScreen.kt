@@ -38,7 +38,9 @@ import com.graball.download.DownloadEntity
 import com.graball.download.DownloadService
 import com.graball.download.GraballDb
 import com.graball.download.Status
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Downloads list: Room-backed, one card per row, DownThemAll-style segmented progress. */
 @Composable
@@ -118,12 +120,16 @@ private suspend fun deleteAllDownloads(
 }
 
 // mediaUri may already point at a missing file -- deletion failure is expected and ignored.
-private fun deleteFile(context: android.content.Context, mediaUri: String?) {
+// ponytail: legacy (<29) fallback rows can hold a file:// uri, which ContentResolver.delete
+// can't touch -- those files are one-way, only the list entry goes.
+private suspend fun deleteFile(context: android.content.Context, mediaUri: String?) {
     if (mediaUri == null) return
-    try {
-        context.contentResolver.delete(Uri.parse(mediaUri), null, null)
-    } catch (e: Exception) {
-        // ignore: file may already be gone
+    withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.delete(Uri.parse(mediaUri), null, null)
+        } catch (e: Exception) {
+            // ignore: file may already be gone
+        }
     }
 }
 

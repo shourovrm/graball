@@ -165,7 +165,9 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
     fun submitAddress() {
         val q = urlText.trim()
         if (q.isEmpty()) return
-        webView.loadUrl(addressBarTarget(q, searchEngine))
+        val target = addressBarTarget(q, searchEngine)
+        currentUrl = target // drop the empty-state overlay immediately, not at onPageFinished
+        webView.loadUrl(target)
     }
 
     BackHandler(enabled = backEnabled) { webView.goBack() }

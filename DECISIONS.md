@@ -8,7 +8,7 @@
 - Design system: dark M3, burnt-orange primary; tokens at top of design/mockups.html.
 
 ## Next
-- Device E2E: adb install, share URL → resolve → pick → download → gallery (blocked: no device attached).
+- User re-test wave 2 (v0.2.0 apk at repo root): delete/delete-all, notification tap, address bar+search, adblock, https-only, folders, theme, clear history.
 - Real repo URL in SettingsScreen SOURCE_URL placeholder.
 - R8 keep rules before ever enabling minify.
 - Device-verify address bar rework + adblock + https-only (no gradle run yet, review-only pass).
@@ -34,6 +34,7 @@
 - NavHost for main nav: rejected for now — 3 fixed tabs, plain index state; add when deep links needed.
 
 ## Log
+- 2026-07-27 | Wave 2 (user feedback): delete perm/all, notif tap intent, address bar+search engines, StevenBlack adblock (93k hosts asset), https-only, SAF folders per kind, theme pref, clear history | v0.2.0
 - 2026-07-27 | browser: address bar rework (placeholder/lock/Go/clear/empty-state), AdBlocker.kt hosts-set blocking, https-only redirect | user reported "no address bar" — it existed but had no affordance; adblock/https-only wired into existing Prefs flows and SniffingClient
 - 2026-07-27 | download/ui.downloads: delete-file + delete-all, notif tap opens app, SAF custom folders (Prefs.folderFor) with MediaStore fallback | user-requested feature wave, scoped to Db/DownloadService/DownloadsScreen/DownloadCard only
 - 2026-07-27 | 3 review waves (adversarial cookie/opus, fresh-eyes/sonnet, whole-branch/opus): 2 blockers + backup-leak critical fixed pre-device | reviews cheaper than device debugging

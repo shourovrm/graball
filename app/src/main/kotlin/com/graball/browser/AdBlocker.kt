@@ -2,6 +2,8 @@ package com.graball.browser
 
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -12,18 +14,21 @@ import kotlinx.coroutines.withContext
 object AdBlocker {
     @Volatile private var ready = false
     private val blocked = HashSet<String>()
+    private val loadLock = Mutex() // tab-switch fires ensureLoaded again mid-load: one loader only
 
     suspend fun ensureLoaded(context: Context) {
         if (ready) return
         withContext(Dispatchers.IO) {
-            if (ready) return@withContext
-            runCatching {
-                context.assets.open("adhosts.txt").bufferedReader().forEachLine { line ->
-                    val h = line.trim()
-                    if (h.isNotEmpty()) blocked.add(h)
+            loadLock.withLock {
+                if (ready) return@withLock
+                runCatching {
+                    context.assets.open("adhosts.txt").bufferedReader().forEachLine { line ->
+                        val h = line.trim()
+                        if (h.isNotEmpty()) blocked.add(h)
+                    }
                 }
+                ready = true
             }
-            ready = true
         }
     }
 

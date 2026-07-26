@@ -90,7 +90,10 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
     var showSearchDialog by remember { mutableStateOf(false) }
     var showThemeDialog by remember { mutableStateOf(false) }
     var showClearHistory by remember { mutableStateOf(false) }
-    var pendingFolderKind by remember { mutableStateOf<String?>(null) }
+    // saveable: the picker is a separate task — process death mid-pick must not drop the choice
+    var pendingFolderKind by androidx.compose.runtime.saveable.rememberSaveable {
+        mutableStateOf<String?>(null)
+    }
 
     val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
         val kind = pendingFolderKind

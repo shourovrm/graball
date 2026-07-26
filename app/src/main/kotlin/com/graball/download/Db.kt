@@ -78,6 +78,9 @@ interface DownloadDao {
     @Query("DELETE FROM downloads")
     suspend fun deleteAll()
 
+    @Query("SELECT COUNT(*) FROM downloads")
+    suspend fun countAll(): Int
+
     // crash recovery: MOVING is recoverable per spec, just requeue and redo the move
     @Query("UPDATE downloads SET status = 'QUEUED' WHERE status IN ('RUNNING','MUXING','MOVING','RESOLVING')")
     suspend fun resetStale()
