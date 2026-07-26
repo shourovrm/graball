@@ -3,6 +3,9 @@ package com.graball.resolve
 /** UI-facing domain models — decoupled from yt-dlp's json shape. */
 enum class MediaKind { VIDEO, AUDIO, IMAGE, DOC, ARCHIVE, OTHER }
 
+/** Sentinel formatId: not a yt-dlp selector — download service must skip `-f` for these. */
+const val DIRECT_FORMAT = "direct"
+
 data class Variant(
     val formatId: String,
     val label: String,

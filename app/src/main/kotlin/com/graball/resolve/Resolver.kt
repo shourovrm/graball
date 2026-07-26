@@ -61,14 +61,15 @@ class Resolver(private val context: Context? = null) {
         }
 
     internal fun toItems(info: YtDlpInfo): List<ResolvedItem> =
-        if (info.type == "playlist" && info.entries != null) {
+        // any container with entries (playlist, multi_video, ...) expands to its entries
+        if (info.entries != null) {
             info.entries.map(::toItem)
         } else {
             listOf(toItem(info))
         }
 
     internal fun toItem(info: YtDlpInfo): ResolvedItem {
-        val variants = (info.formats ?: emptyList())
+        var variants = (info.formats ?: emptyList())
             .filterNot { it.protocol == "mhtml" || it.ext == "mhtml" }
             .filterNot { it.vcodec == "none" && it.acodec == "none" }
             .map { f ->
@@ -85,6 +86,14 @@ class Resolver(private val context: Context? = null) {
                     needsMux = hasVideo && !hasAudio,
                 )
             }
+        // no formats array (generic extractor, image entries): synthesize one direct variant
+        if (variants.isEmpty() && info.url != null) {
+            val ext = info.ext ?: info.url.substringBefore('?').substringAfterLast('.', "").lowercase()
+            variants = listOf(
+                Variant(DIRECT_FORMAT, ext.ifEmpty { "?" }, ext, info.filesize ?: info.filesize_approx,
+                    hasVideo = false, hasAudio = false, height = null, needsMux = false)
+            )
+        }
         val kind = when {
             variants.any { it.hasVideo } -> MediaKind.VIDEO
             variants.any { it.hasAudio } -> MediaKind.AUDIO
@@ -111,7 +120,7 @@ class Resolver(private val context: Context? = null) {
             thumbnail = null,
             durationSec = null,
             kind = kind,
-            variants = listOf(Variant("direct", ext, ext, null, kind == MediaKind.VIDEO, kind == MediaKind.AUDIO, null, false)),
+            variants = listOf(Variant(DIRECT_FORMAT, ext, ext, null, kind == MediaKind.VIDEO, kind == MediaKind.AUDIO, null, false)),
         )
     }
 }

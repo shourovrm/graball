@@ -134,12 +134,21 @@ class DownloadService : Service() {
                     }
                     continue
                 }
-                if (jobs.isEmpty()) break
+                if (jobs.isEmpty()) {
+                    // close the enqueue race: a row inserted after the last poll but before
+                    // stopSelf would be stranded (onStartCommand sees this loop still active)
+                    if (dao.nextQueued() != null) continue
+                    break
+                }
                 jobs.first().join() // waits if still running; instant no-op if already done
             }
             notifJob.cancel()
-            // ponytail: a startForegroundService() racing this exact instant could be missed;
-            // not handled -- enqueue-then-download is effectively sequential in practice.
+            // from here a fresh onStartCommand must be able to spawn a new loop
+            loopJob = null
+            if (dao.nextQueued() != null) {
+                ensureLoopRunning() // row landed while we were shutting down
+                return@launch
+            }
             finishNotification()
             stopForeground(STOP_FOREGROUND_DETACH)
             stopSelf()
@@ -155,7 +164,10 @@ class DownloadService : Service() {
         val tmpDir = File(cacheDir, "downloads").apply { mkdirs() }
         val outTemplate = "${tmpDir.absolutePath}/%(title).100B-$id.%(ext)s"
         val request = YoutubeDLRequest(current.url).apply {
-            addOption("-f", if (current.needsMux) "${current.formatId}+bestaudio" else current.formatId)
+            // DIRECT_FORMAT is our sentinel, not a yt-dlp selector: let yt-dlp fetch the URL as-is
+            if (current.formatId != com.graball.resolve.DIRECT_FORMAT) {
+                addOption("-f", if (current.needsMux) "${current.formatId}+bestaudio" else current.formatId)
+            }
             addOption("-o", outTemplate)
             addOption("--no-mtime")
             addOption("--no-warnings")
@@ -233,7 +245,7 @@ class DownloadService : Service() {
     }
 
     private fun findOutputFile(tmpDir: File, id: Long): File? =
-        tmpDir.listFiles()?.firstOrNull { it.name.contains("-$id.") }
+        tmpDir.listFiles()?.firstOrNull { it.name.substringBeforeLast('.').endsWith("-$id") }
 
     private fun cleanupTemp(tmpDir: File, id: Long) {
         findOutputFile(tmpDir, id)?.delete()
@@ -314,9 +326,9 @@ class DownloadService : Service() {
             val dao = GraballDb.getInstance(context).downloadDao()
             CoroutineScope(Dispatchers.IO).launch {
                 val e = dao.getById(id) ?: return@launch
-                dao.update(e.copy(status = Status.FAILED, errorClass = "CANCELLED"))
+                dao.update(e.copy(status = Status.FAILED, errorClass = "CANCELLED", rawLog = null))
                 File(context.cacheDir, "downloads").listFiles()
-                    ?.firstOrNull { it.name.contains("-$id.") }?.delete()
+                    ?.firstOrNull { it.name.substringBeforeLast('.').endsWith("-$id") }?.delete()
             }
         }
 

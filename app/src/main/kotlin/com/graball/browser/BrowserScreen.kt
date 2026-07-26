@@ -77,7 +77,7 @@ private fun SniffHit.toResolvedItemOrNull(): ResolvedItem? {
         kind = kind,
         variants = listOf(
             Variant(
-                formatId = "direct",
+                formatId = com.graball.resolve.DIRECT_FORMAT,
                 label = e,
                 ext = e,
                 sizeBytes = null,
@@ -168,7 +168,7 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
         }
 
         Box(Modifier.weight(1f)) {
-            AndroidView(factory = { webView }, modifier = Modifier.fillMaxSize())
+            AndroidView(factory = { webView }, onRelease = { it.destroy() }, modifier = Modifier.fillMaxSize())
 
             BadgedBox(
                 badge = { if (store.hits.size > 0) Badge { Text("${store.hits.size}") } },
