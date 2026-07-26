@@ -15,7 +15,7 @@
 ## Gotchas
 - DownloadService DB writes: ONLY through dbCtx (limitedParallelism(1)) + updateIfLive guard — a throttled progress write must never resurrect a terminal row.
 - UI-side cancel/retry/delete write the DB from outside the service (spec says service = only writer). Accepted deviation: same process, writes serialized via Room; revisit if a second writer race ever shows.
-- Cookies: only `com.graball.cookies.CookieExport` touches values. File = filesDir/cookies/c-<uuid>.txt, deleted in `finally`. Never log it, never widen scope, never move it off filesDir.
+- Cookies: only `com.graball.cookies.CookieExport` touches values. File = noBackupFilesDir/cookies/c-<uuid>.txt (excluded from backup), deleted in `finally` + swept on app start. Never log it, never widen scope past the exact host, never move it off private storage.
 - yt-dlp's cookie jar loads with `ignore_expires=True` and needs exactly 7 tab fields, so expiry `0` (session cookie) is kept.
 - Engine UpdateChannel accessors are literally `_STABLE`/`_NIGHTLY` (verified in 0.18.1 bytecode).
 - Kotlin 2.4: `kotlinOptions{}` is a hard error — use `kotlin { compilerOptions { jvmTarget.set(...) } }`.
