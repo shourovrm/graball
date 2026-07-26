@@ -37,6 +37,12 @@ class ShareActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         extractUrl()?.let { startResolve(it) }
+        addOnNewIntentListener { fresh ->
+            // singleTask: a re-share routes here instead of a new instance
+            intent = fresh
+            resolvedWithCookies = false
+            extractUrl()?.let { startResolve(it) } ?: run { uiState = ShareUiState.NoUrl }
+        }
 
         setContent {
             GraballTheme {
@@ -44,6 +50,7 @@ class ShareActivity : ComponentActivity() {
                     state = uiState,
                     onDismiss = ::finish,
                     onGo = { url -> startResolve(url) },
+                    onPaste = ::readClipboardUrl,
                     onRetry = { (uiState as? ShareUiState.Error)?.url?.let { startResolve(it) } },
                     onSignIn = { lastUrl?.let { signIn.launch(SignInActivity.intent(this, it)) } },
                     onCopyLog = ::copyLog,
@@ -59,20 +66,20 @@ class ShareActivity : ComponentActivity() {
         }
     }
 
-    private fun extractUrl(): String? {
-        val fromIntent = when (intent?.action) {
-            Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)?.let(UrlExtractor::extract)
-            Intent.ACTION_VIEW -> intent.data?.toString()
-            else -> null
-        }
-        if (fromIntent != null) return fromIntent
-        // no share text (e.g. launched via clipboard shortcut): fall back to clipboard
-        val clipText = getSystemService(ClipboardManager::class.java)
+    private fun extractUrl(): String? = when (intent?.action) {
+        Intent.ACTION_SEND -> intent.getStringExtra(Intent.EXTRA_TEXT)?.let(UrlExtractor::extract)
+        // explicit intents bypass the manifest <data> filter: allowlist scheme here, at the boundary
+        Intent.ACTION_VIEW -> intent.data?.takeIf { it.scheme == "http" || it.scheme == "https" }?.toString()
+        else -> null
+    }
+
+    /** Clipboard is only read behind an explicit user tap — never automatically on launch. */
+    fun readClipboardUrl(): String? =
+        getSystemService(ClipboardManager::class.java)
             ?.primaryClip
             ?.takeIf { it.itemCount > 0 }
             ?.getItemAt(0)?.coerceToText(this)?.toString()
-        return clipText?.let(UrlExtractor::extract)
-    }
+            ?.let(UrlExtractor::extract)
 
     private fun startResolve(url: String, withCookies: Boolean = false) {
         val app = application as GraballApp

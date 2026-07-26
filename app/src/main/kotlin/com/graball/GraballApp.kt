@@ -21,6 +21,8 @@ class GraballApp : Application() {
         super.onCreate()
         // native lib extraction is slow on first run; never block main thread
         appScope.launch(Dispatchers.IO) {
+            // sweep cookie exports a SIGKILL may have orphaned (finally never ran)
+            java.io.File(noBackupFilesDir, "cookies").deleteRecursively()
             try {
                 YoutubeDL.getInstance().init(this@GraballApp)
                 FFmpeg.getInstance().init(this@GraballApp)

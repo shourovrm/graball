@@ -63,6 +63,7 @@ fun ShareSheet(
     state: ShareUiState,
     onDismiss: () -> Unit,
     onGo: (String) -> Unit,
+    onPaste: () -> String?,
     onRetry: () -> Unit,
     onSignIn: () -> Unit,
     onCopyLog: (String) -> Unit,
@@ -74,7 +75,7 @@ fun ShareSheet(
 
     ModalBottomSheet(onDismissRequest = dismiss, sheetState = sheetState) {
         when (state) {
-            is ShareUiState.NoUrl -> NoUrlContent(onGo = onGo, onCancel = dismiss)
+            is ShareUiState.NoUrl -> NoUrlContent(onGo = onGo, onPaste = onPaste, onCancel = dismiss)
             is ShareUiState.Resolving -> ResolvingContent(state, onCancel = dismiss)
             is ShareUiState.Error ->
                 ErrorContent(state, onRetry = onRetry, onSignIn = onSignIn, onCopyLog = onCopyLog, onClose = dismiss)
@@ -157,7 +158,7 @@ private fun ErrorContent(
 }
 
 @Composable
-private fun NoUrlContent(onGo: (String) -> Unit, onCancel: () -> Unit) {
+private fun NoUrlContent(onGo: (String) -> Unit, onPaste: () -> String?, onCancel: () -> Unit) {
     var text by remember { mutableStateOf("") }
     Column(Modifier.padding(24.dp)) {
         Text("No link found", style = MaterialTheme.typography.titleMedium)
@@ -171,6 +172,8 @@ private fun NoUrlContent(onGo: (String) -> Unit, onCancel: () -> Unit) {
         )
         Spacer(Modifier.height(16.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            TextButton(onClick = { onPaste()?.let { text = it } }) { Text("Paste") }
+            Spacer(Modifier.width(8.dp))
             TextButton(onClick = onCancel) { Text("Cancel") }
             Spacer(Modifier.width(8.dp))
             Button(onClick = { onGo(text) }, enabled = text.isNotBlank()) { Text("Go") }

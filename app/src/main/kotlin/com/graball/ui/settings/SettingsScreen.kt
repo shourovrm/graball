@@ -85,6 +85,17 @@ fun SettingsScreen(modifier: Modifier = Modifier) {
             },
         )
 
+        SectionLabel("PRIVACY")
+        var cookiesCleared by remember { mutableStateOf(false) }
+        ListItem(
+            headlineContent = { Text(if (cookiesCleared) "Cookies cleared" else "Clear cookies") },
+            supportingContent = { Text("Signs you out of every site in the in-app browser") },
+            modifier = Modifier.clickable(enabled = !cookiesCleared) {
+                com.graball.cookies.CookieExport.clearAll()
+                cookiesCleared = true
+            },
+        )
+
         SectionLabel("ABOUT")
         ListItem(headlineContent = { Text("Version $appVersion") })
         ListItem(

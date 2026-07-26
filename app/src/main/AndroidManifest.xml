@@ -9,8 +9,10 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
+    <!-- allowBackup=false: WebView cookie jar + Room DB (URLs, logs) must never reach cloud backup -->
     <application
         android:name=".GraballApp"
+        android:allowBackup="false"
         android:label="@string/app_name"
         android:icon="@mipmap/ic_launcher"
         android:theme="@style/Theme.Graball"
