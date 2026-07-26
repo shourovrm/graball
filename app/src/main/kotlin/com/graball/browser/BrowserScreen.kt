@@ -5,6 +5,7 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,12 +20,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -33,6 +38,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,18 +46,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.graball.download.Enqueue
+import com.graball.prefs.Prefs
 import com.graball.resolve.MediaKind
 import com.graball.resolve.ResolveResult
 import com.graball.resolve.ResolvedItem
 import com.graball.resolve.Resolver
 import com.graball.resolve.Variant
 import com.graball.ui.picker.PickerScreen
+import java.net.URLEncoder
 import kotlinx.coroutines.launch
 
 private sealed interface BrowserSheetState {
@@ -90,6 +100,20 @@ private fun SniffHit.toResolvedItemOrNull(): ResolvedItem? {
     )
 }
 
+// read off the WebView's network thread (shouldInterceptRequest/shouldOverrideUrlLoading) — a
+// plain @Volatile field, not Compose State, since those callbacks never run on the main thread.
+private class BoolFlag(@Volatile var value: Boolean)
+
+/** Input is URL-ish (vs. a search query) if it has a dot with no spaces, or already has a scheme. */
+private fun looksLikeUrl(q: String) = (q.contains('.') && !q.contains(' ')) || q.startsWith("http")
+
+private fun addressBarTarget(q: String, searchEngine: String): String = if (looksLikeUrl(q)) {
+    if (q.startsWith("http://") || q.startsWith("https://")) q else "https://$q"
+} else {
+    val template = Prefs.SEARCH_ENGINES[searchEngine] ?: Prefs.SEARCH_ENGINES.getValue("google")
+    template + URLEncoder.encode(q, "UTF-8")
+}
+
 /** In-app WebView browser with a network/DOM/MSE sniffer feeding a picker sheet off its FAB. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
 @SuppressLint("SetJavaScriptEnabled")
@@ -100,17 +124,33 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
     val store = remember { SniffStore() }
 
     var urlText by remember { mutableStateOf(startUrl ?: "") }
+    var currentUrl by remember { mutableStateOf<String?>(startUrl?.takeIf { it.isNotBlank() }) }
+    var addressFocused by remember { mutableStateOf(false) }
     var pageTitle by remember { mutableStateOf<String?>(null) }
     var backEnabled by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(100) }
     var showSheet by remember { mutableStateOf(false) }
     var sheetState by remember { mutableStateOf<BrowserSheetState>(BrowserSheetState.Resolving) }
 
+    val adblockOn by Prefs.adblock(context).collectAsStateWithLifecycle(initialValue = true)
+    val httpsOnlyOn by Prefs.httpsOnly(context).collectAsStateWithLifecycle(initialValue = false)
+    val searchEngine by Prefs.searchEngine(context).collectAsStateWithLifecycle(initialValue = "google")
+
+    val adblockFlag = remember { BoolFlag(true) }
+    val httpsOnlyFlag = remember { BoolFlag(false) }
+    LaunchedEffect(adblockOn) { adblockFlag.value = adblockOn }
+    LaunchedEffect(httpsOnlyOn) { httpsOnlyFlag.value = httpsOnlyOn }
+    LaunchedEffect(Unit) { AdBlocker.ensureLoaded(context) }
+
     val webView = remember {
         WebView(context).apply {
-            installSniffer(store) { view, title, url ->
+            installSniffer(
+                store = store,
+                adblockEnabled = { adblockFlag.value },
+                httpsOnly = { httpsOnlyFlag.value },
+            ) { view, title, url ->
                 pageTitle = title
-                url?.let { urlText = it }
+                url?.let { urlText = it; currentUrl = it }
                 backEnabled = view.canGoBack()
             }
             webChromeClient = object : WebChromeClient() {
@@ -122,6 +162,12 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
         }
     }
 
+    fun submitAddress() {
+        val q = urlText.trim()
+        if (q.isEmpty()) return
+        webView.loadUrl(addressBarTarget(q, searchEngine))
+    }
+
     BackHandler(enabled = backEnabled) { webView.goBack() }
 
     // Fires yt-dlp on the current page URL; result handed back on the composition's scope.
@@ -131,28 +177,35 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
     }
 
     Column(modifier = modifier.fillMaxSize()) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                Icons.Filled.Lock,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(end = 8.dp),
-            )
-            OutlinedTextField(
-                value = urlText,
-                onValueChange = { urlText = it },
-                singleLine = true,
-                modifier = Modifier.weight(1f),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
-                keyboardActions = KeyboardActions(onGo = {
-                    val target = urlText.trim().let { if (it.startsWith("http")) it else "https://$it" }
-                    webView.loadUrl(target)
-                }),
-            )
-        }
+        OutlinedTextField(
+            value = urlText,
+            onValueChange = { urlText = it },
+            singleLine = true,
+            placeholder = { Text("Search or enter address") },
+            leadingIcon = if (currentUrl?.startsWith("https://") == true) {
+                { Icon(Icons.Filled.Lock, contentDescription = "Secure", tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            } else {
+                null
+            },
+            trailingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (addressFocused && urlText.isNotEmpty()) {
+                        IconButton(onClick = { urlText = "" }) {
+                            Icon(Icons.Filled.Close, contentDescription = "Clear")
+                        }
+                    }
+                    IconButton(onClick = { submitAddress() }) {
+                        Icon(Icons.Filled.ArrowForward, contentDescription = "Go")
+                    }
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp)
+                .onFocusChanged { addressFocused = it.isFocused },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Go),
+            keyboardActions = KeyboardActions(onGo = { submitAddress() }),
+        )
         pageTitle?.let {
             Text(
                 it,
@@ -169,6 +222,28 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
 
         Box(Modifier.weight(1f)) {
             AndroidView(factory = { webView }, onRelease = { it.destroy() }, modifier = Modifier.fillMaxSize())
+
+            if (currentUrl == null) {
+                Box(
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            Icons.Filled.Language,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(64.dp),
+                        )
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            "Search or enter address above",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
 
             BadgedBox(
                 badge = { if (store.hits.size > 0) Badge { Text("${store.hits.size}") } },

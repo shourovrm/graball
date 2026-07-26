@@ -78,18 +78,34 @@ class SniffBridge(private val store: SniffStore) {
     }
 }
 
-/** WebViewClient that mirrors every request into the SniffStore. Never blocks — always returns null. */
+// ponytail: one shared empty response for every blocked request — safe to reuse since a
+// zero-length ByteArrayInputStream always EOFs immediately, no per-call state to exhaust.
+private val EMPTY_RESPONSE = WebResourceResponse("text/plain", "utf-8", java.io.ByteArrayInputStream(ByteArray(0)))
+
+/** WebViewClient that mirrors every request into the SniffStore. Never blocks network thread on I/O. */
 private class SniffingClient(
     private val store: SniffStore,
+    private val adblockEnabled: () -> Boolean,
+    private val httpsOnly: () -> Boolean,
     private val onPage: (view: WebView, title: String?, url: String?) -> Unit,
 ) : WebViewClient() {
 
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         val url = request.url.toString()
+        if (adblockEnabled() && AdBlocker.isBlocked(request.url.host)) return EMPTY_RESPONSE
         val accept = request.requestHeaders["Accept"] // cheap header peek, no extra round trip
         // called off the UI thread; hop back before touching Compose state
         view.post { store.add(url, Source.NETWORK, mimeHint = accept?.substringBefore(',')) }
         return null
+    }
+
+    override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+        val url = request.url
+        if (httpsOnly() && url.scheme == "http") {
+            view.loadUrl("https://" + url.toString().removePrefix("http://"))
+            return true
+        }
+        return false
     }
 
     override fun onPageStarted(view: WebView, url: String?, favicon: android.graphics.Bitmap?) {
@@ -107,6 +123,8 @@ private class SniffingClient(
 @SuppressLint("SetJavaScriptEnabled")
 fun WebView.installSniffer(
     store: SniffStore,
+    adblockEnabled: () -> Boolean = { false },
+    httpsOnly: () -> Boolean = { false },
     onPage: (view: WebView, title: String?, url: String?) -> Unit = { _, _, _ -> },
 ) {
     settings.javaScriptEnabled = true
@@ -115,6 +133,6 @@ fun WebView.installSniffer(
     settings.allowFileAccess = false
     settings.allowContentAccess = false
     settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
-    webViewClient = SniffingClient(store, onPage)
+    webViewClient = SniffingClient(store, adblockEnabled, httpsOnly, onPage)
     addJavascriptInterface(SniffBridge(store), "GraballSniff")
 }
