@@ -1,9 +1,11 @@
 package com.graball
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -28,9 +30,17 @@ import com.graball.ui.settings.SettingsScreen
 import com.graball.ui.theme.GraballTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val notifPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { /* optional: downloads run either way */ }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // 13+: without this grant the download progress notification is silently dropped
+        if (Build.VERSION.SDK_INT >= 33) {
+            notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+        }
         setContent {
             GraballTheme {
                 // ponytail: 3 fixed tabs, plain index state — NavHost when deep links/backstack needed

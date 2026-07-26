@@ -36,6 +36,7 @@ class Resolver(private val context: Context? = null) {
         val request = YoutubeDLRequest(url).apply {
             addOption("-J")
             addOption("--no-warnings")
+            addOption("--socket-timeout", "15")
             addOption("--playlist-items", "1-25") // cap playlist size, keep per-video formats
         }
         val ctx = context
@@ -55,7 +56,8 @@ class Resolver(private val context: Context? = null) {
             val response = YoutubeDL.getInstance().execute(request, null, null)
             val info = json.decodeFromString(YtDlpInfo.serializer(), response.out)
             ResolveResult.Success(toItems(info))
-        } catch (e: YoutubeDLException) {
+        } catch (e: Exception) {
+            // covers YoutubeDLException, engine-not-initialized IllegalState, JSON drift
             val firstLine = e.message?.lineSequence()?.firstOrNull() ?: ""
             ResolveResult.Failure(classifyError(e.message), "${e::class.simpleName}: $firstLine")
         }
@@ -63,7 +65,7 @@ class Resolver(private val context: Context? = null) {
     internal fun toItems(info: YtDlpInfo): List<ResolvedItem> =
         // any container with entries (playlist, multi_video, ...) expands to its entries
         if (info.entries != null) {
-            info.entries.map(::toItem)
+            info.entries.mapIndexed { i, e -> toItem(e).copy(id = i) }
         } else {
             listOf(toItem(info))
         }

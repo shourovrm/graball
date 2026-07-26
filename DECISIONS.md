@@ -9,11 +9,12 @@
 
 ## Next
 - Device E2E: adb install, share URL → resolve → pick → download → gallery (blocked: no device attached).
-- Adversarial review of cookies module + fresh-eyes review of download service (in flight).
 - Real repo URL in SettingsScreen SOURCE_URL placeholder.
 - R8 keep rules before ever enabling minify.
 
 ## Gotchas
+- DownloadService DB writes: ONLY through dbCtx (limitedParallelism(1)) + updateIfLive guard — a throttled progress write must never resurrect a terminal row.
+- UI-side cancel/retry/delete write the DB from outside the service (spec says service = only writer). Accepted deviation: same process, writes serialized via Room; revisit if a second writer race ever shows.
 - Cookies: only `com.graball.cookies.CookieExport` touches values. File = filesDir/cookies/c-<uuid>.txt, deleted in `finally`. Never log it, never widen scope, never move it off filesDir.
 - yt-dlp's cookie jar loads with `ignore_expires=True` and needs exactly 7 tab fields, so expiry `0` (session cookie) is kept.
 - Engine UpdateChannel accessors are literally `_STABLE`/`_NIGHTLY` (verified in 0.18.1 bytecode).
@@ -29,6 +30,7 @@
 - NavHost for main nav: rejected for now — 3 fixed tabs, plain index state; add when deep links needed.
 
 ## Log
+- 2026-07-27 | 3 review waves (adversarial cookie/opus, fresh-eyes/sonnet, whole-branch/opus): 2 blockers + backup-leak critical fixed pre-device | reviews cheaper than device debugging
 - 2026-07-27 | Full app v0.1.0 implemented in parallel subagent wave, single integration build pass | disjoint packages let 6 agents write concurrently, gradle stayed serial
 - 2026-07-27 | Cookie flow: WebView-only source, one getCookie(https://host) query, per-call Netscape file in filesDir | host query already returns applicable domain cookies; widening the export buys nothing and leaks sibling subdomains
 - 2026-07-27 | Dark M3 + burnt-orange primary design system; 5-screen mockups committed | share-first flow validated visually before any Kotlin

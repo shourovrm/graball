@@ -26,14 +26,14 @@ fun hostOf(url: String): String =
 
 /** Plain holder for picker UI state — transient sheet, no need to survive process death. */
 class PickerState(val items: List<ResolvedItem>) {
-    // selection + chosen variant per item, keyed by sourceUrl. Pre-selected per DownThemAll convention.
-    val selected = mutableStateMapOf<String, Boolean>().apply {
-        items.forEach { put(it.sourceUrl, true) }
+    // selection + chosen variant per item, keyed by stable item id. Pre-selected per DownThemAll convention.
+    val selected = mutableStateMapOf<Int, Boolean>().apply {
+        items.forEach { put(it.id, true) }
     }
-    val chosenVariant = mutableStateMapOf<String, Variant>().apply {
-        items.forEach { item -> item.bestVariant()?.let { put(item.sourceUrl, it) } }
+    val chosenVariant = mutableStateMapOf<Int, Variant>().apply {
+        items.forEach { item -> item.bestVariant()?.let { put(item.id, it) } }
     }
-    val expanded = mutableStateMapOf<String, Boolean>()
+    val expanded = mutableStateMapOf<Int, Boolean>()
 
     var filter by mutableStateOf(KindFilter.ALL)
     var sortBy by mutableStateOf(SortBy.TITLE)
@@ -52,38 +52,38 @@ class PickerState(val items: List<ResolvedItem>) {
         return when (sortBy) {
             SortBy.TITLE -> byQuery.sortedBy { it.title.lowercase() }
             SortBy.KIND -> byQuery.sortedBy { it.kind.ordinal }
-            SortBy.SIZE -> byQuery.sortedByDescending { chosenVariant[it.sourceUrl]?.sizeBytes ?: -1 }
+            SortBy.SIZE -> byQuery.sortedByDescending { chosenVariant[it.id]?.sizeBytes ?: -1 }
         }
     }
 
-    fun isSelected(item: ResolvedItem) = selected[item.sourceUrl] == true
+    fun isSelected(item: ResolvedItem) = selected[item.id] == true
 
     fun toggle(item: ResolvedItem) {
-        selected[item.sourceUrl] = !isSelected(item)
+        selected[item.id] = !isSelected(item)
     }
 
     fun toggleExpanded(item: ResolvedItem) {
-        expanded[item.sourceUrl] = expanded[item.sourceUrl] != true
+        expanded[item.id] = expanded[item.id] != true
     }
 
-    fun isExpanded(item: ResolvedItem) = expanded[item.sourceUrl] == true
+    fun isExpanded(item: ResolvedItem) = expanded[item.id] == true
 
     fun chooseVariant(item: ResolvedItem, variant: Variant) {
-        chosenVariant[item.sourceUrl] = variant
+        chosenVariant[item.id] = variant
     }
 
-    fun selectAll() = items.forEach { selected[it.sourceUrl] = true }
-    fun clearSelection() = items.forEach { selected[it.sourceUrl] = false }
-    fun invertSelection() = items.forEach { selected[it.sourceUrl] = !isSelected(it) }
+    fun selectAll() = items.forEach { selected[it.id] = true }
+    fun clearSelection() = items.forEach { selected[it.id] = false }
+    fun invertSelection() = items.forEach { selected[it.id] = !isSelected(it) }
 
     val selectedCount: Int get() = items.count { isSelected(it) }
 
     val selectedSizeBytes: Long get() = items.filter { isSelected(it) }
-        .sumOf { chosenVariant[it.sourceUrl]?.sizeBytes ?: 0L }
+        .sumOf { chosenVariant[it.id]?.sizeBytes ?: 0L }
 
     fun selection(): List<Pair<ResolvedItem, Variant>> =
         items.mapNotNull { item ->
-            val v = chosenVariant[item.sourceUrl] ?: item.bestVariant()
+            val v = chosenVariant[item.id] ?: item.bestVariant()
             if (isSelected(item) && v != null) item to v else null
         }
 }

@@ -191,13 +191,14 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
                                             // by ResolvedItem.sourceUrl only (best available match).
                                             val existing = result.items.map { it.sourceUrl }.toSet()
                                             BrowserSheetState.Found(
-                                                result.items + sniffed.filter { it.sourceUrl !in existing },
+                                                (result.items + sniffed.filter { it.sourceUrl !in existing })
+                                                    .mapIndexed { i, it -> it.copy(id = i) },
                                             )
                                         }
                                         is ResolveResult.Failure -> if (sniffed.isEmpty()) {
                                             BrowserSheetState.Empty("Nothing found on this page")
                                         } else {
-                                            BrowserSheetState.Found(sniffed)
+                                            BrowserSheetState.Found(sniffed.mapIndexed { i, it -> it.copy(id = i) })
                                         }
                                     }
                                 }

@@ -84,7 +84,7 @@ fun PickerScreen(
             if (state.searchOpen) SearchRow(state)
             ChipRow(state)
             LazyColumn(modifier = Modifier.weight(1f, fill = true)) {
-                items(state.visibleItems(), key = { it.sourceUrl }) { item ->
+                items(state.visibleItems(), key = { it.id }) { item ->
                     ItemRow(state, item)
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
@@ -171,7 +171,7 @@ private fun ChipRow(state: PickerState) {
 
 @Composable
 private fun ItemRow(state: PickerState, item: ResolvedItem) {
-    val chosen = state.chosenVariant[item.sourceUrl] ?: item.bestVariant()
+    val chosen = state.chosenVariant[item.id] ?: item.bestVariant()
     val subtitle = buildString {
         chosen?.let { append(buildVariantLabel(it.height, it.ext, it.sizeBytes)) }
         append(" · ")

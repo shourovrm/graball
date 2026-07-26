@@ -39,9 +39,15 @@ import kotlinx.coroutines.sync.Semaphore
 class DownloadService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    // all DownloadEntity writes go through one lane so a throttled progress write can never
+    // land after (and resurrect) a terminal DONE/FAILED write
+    @kotlinx.coroutines.ExperimentalCoroutinesApi
+    private val dbCtx = Dispatchers.IO.limitedParallelism(1)
     private val semaphore = Semaphore(MAX_CONCURRENT)
     private lateinit var dao: DownloadDao
     private var loopJob: Job? = null
+    @Volatile private var lastStartId = -1
     private var lastNotifyAt = 0L
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -49,10 +55,14 @@ class DownloadService : Service() {
     override fun onCreate() {
         super.onCreate()
         dao = GraballDb.getInstance(this).downloadDao()
+        // crash recovery once per process, BEFORE any loop: a second loop start must never
+        // requeue rows a live loop is still downloading
+        serviceScope.launch { dao.resetStale() }
         createChannel()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        lastStartId = startId
         startForegroundNotification()
         ensureLoopRunning()
         return START_NOT_STICKY
@@ -113,10 +123,10 @@ class DownloadService : Service() {
 
     /** One worker loop per service lifetime: pulls QUEUED rows, bounds concurrency with a
      * Semaphore(2), stops the service once nothing is queued or running. */
+    @Synchronized
     private fun ensureLoopRunning() {
         if (loopJob?.isActive == true) return
         loopJob = serviceScope.launch {
-            dao.resetStale() // crash recovery: requeue anything mid-flight (incl. MOVING)
             val notifJob = launch { dao.observeAll().collect { notifyProgress(it) } }
             val jobs = mutableListOf<Job>()
             while (true) {
@@ -151,7 +161,7 @@ class DownloadService : Service() {
             }
             finishNotification()
             stopForeground(STOP_FOREGROUND_DETACH)
-            stopSelf()
+            stopSelf(lastStartId) // ignored if a newer start command arrived — its loop lives on
         }
     }
 
@@ -181,7 +191,7 @@ class DownloadService : Service() {
                     if (current.status != Status.MUXING) {
                         current = current.copy(status = Status.MUXING)
                         val snapshot = current
-                        serviceScope.launch { dao.update(snapshot) }
+                        serviceScope.launch(dbCtx) { updateIfLive(snapshot) }
                     }
                     return@execute
                 }
@@ -198,7 +208,7 @@ class DownloadService : Service() {
                 if (now - lastDbWrite >= 500) { // throttle DB writes to ~2/sec
                     lastDbWrite = now
                     val snapshot = current
-                    serviceScope.launch { dao.update(snapshot) }
+                    serviceScope.launch(dbCtx) { updateIfLive(snapshot) }
                 }
             }
             Unit
@@ -215,25 +225,31 @@ class DownloadService : Service() {
                 runEngine()
             }
             current = current.copy(status = Status.MOVING)
-            dao.update(current)
+            kotlinx.coroutines.withContext(dbCtx) { dao.update(current) }
             val mediaUri = publishToMediaStore(current, tmpDir)
             current = if (mediaUri != null) {
                 current.copy(status = Status.DONE, mediaUri = mediaUri.toString(), progressPct = 100f)
             } else {
                 current.copy(status = Status.FAILED, errorClass = "UNKNOWN", rawLog = "output file not found after download")
             }
-            dao.update(current)
+            kotlinx.coroutines.withContext(dbCtx) { dao.update(current) }
         } catch (e: YoutubeDL.CanceledException) {
-            dao.update(current.copy(status = Status.FAILED, errorClass = "CANCELLED"))
+            kotlinx.coroutines.withContext(dbCtx) { dao.update(current.copy(status = Status.FAILED, errorClass = "CANCELLED")) }
             cleanupTemp(tmpDir, id)
         } catch (e: YoutubeDLException) {
             // never log e.message (may contain URL/cookie text) -- store to DB only
-            dao.update(current.copy(status = Status.FAILED, errorClass = classifyError(e.message).name, rawLog = truncate(e.message)))
+            kotlinx.coroutines.withContext(dbCtx) { dao.update(current.copy(status = Status.FAILED, errorClass = classifyError(e.message).name, rawLog = truncate(e.message))) }
             cleanupTemp(tmpDir, id)
         } catch (e: Exception) {
-            dao.update(current.copy(status = Status.FAILED, errorClass = "UNKNOWN", rawLog = truncate(e.message)))
+            kotlinx.coroutines.withContext(dbCtx) { dao.update(current.copy(status = Status.FAILED, errorClass = "UNKNOWN", rawLog = truncate(e.message))) }
             cleanupTemp(tmpDir, id)
         }
+    }
+
+    /** Progress writes only apply while the row is still live — never resurrect DONE/FAILED. */
+    private suspend fun updateIfLive(snapshot: DownloadEntity) {
+        val row = dao.getById(snapshot.id) ?: return
+        if (row.status in Status.ACTIVE) dao.update(snapshot)
     }
 
     private fun truncate(s: String?): String = (s ?: "").take(8 * 1024)
@@ -244,11 +260,15 @@ class DownloadService : Service() {
         return free >= need
     }
 
+    // matches "...-<id>.mp4", fragment "...-<id>.f137.mp4", partial "...-<id>.mp4.part"
+    private fun isTempOf(name: String, id: Long) =
+        Regex("-$id(\\.[A-Za-z0-9]+)+$").containsMatchIn(name)
+
     private fun findOutputFile(tmpDir: File, id: Long): File? =
-        tmpDir.listFiles()?.firstOrNull { it.name.substringBeforeLast('.').endsWith("-$id") }
+        tmpDir.listFiles()?.firstOrNull { isTempOf(it.name, id) && !it.name.endsWith(".part") }
 
     private fun cleanupTemp(tmpDir: File, id: Long) {
-        findOutputFile(tmpDir, id)?.delete()
+        tmpDir.listFiles()?.filter { isTempOf(it.name, id) }?.forEach { it.delete() }
     }
 
     private fun mimeFor(ext: String): String =
@@ -281,7 +301,12 @@ class DownloadService : Service() {
             put(MediaStore.MediaColumns.IS_PENDING, 1)
         }
         val uri = contentResolver.insert(collection, values) ?: return null
-        contentResolver.openOutputStream(uri)?.use { out -> FileInputStream(file).use { it.copyTo(out) } }
+        try {
+            contentResolver.openOutputStream(uri)?.use { out -> FileInputStream(file).use { it.copyTo(out) } }
+        } catch (e: Exception) {
+            contentResolver.delete(uri, null, null) // never leave an invisible IS_PENDING row
+            throw e
+        }
         values.clear()
         values.put(MediaStore.MediaColumns.IS_PENDING, 0)
         contentResolver.update(uri, values, null, null)
@@ -322,13 +347,14 @@ class DownloadService : Service() {
                 "\"fi\":%(progress.fragment_index|0)s,\"fc\":%(progress.fragment_count|0)s}"
 
         fun cancel(context: Context, id: Long) {
-            YoutubeDL.getInstance().destroyProcessById(id.toString())
             val dao = GraballDb.getInstance(context).downloadDao()
             CoroutineScope(Dispatchers.IO).launch {
+                YoutubeDL.getInstance().destroyProcessById(id.toString()) // forks pstree+kill: never on main
                 val e = dao.getById(id) ?: return@launch
                 dao.update(e.copy(status = Status.FAILED, errorClass = "CANCELLED", rawLog = null))
                 File(context.cacheDir, "downloads").listFiles()
-                    ?.firstOrNull { it.name.substringBeforeLast('.').endsWith("-$id") }?.delete()
+                    ?.filter { Regex("-$id(\\.[A-Za-z0-9]+)+$").containsMatchIn(it.name) }
+                    ?.forEach { it.delete() }
             }
         }
 

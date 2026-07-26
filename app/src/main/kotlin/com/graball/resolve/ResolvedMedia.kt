@@ -23,6 +23,8 @@ data class ResolvedItem(
     val thumbnail: String?,
     val durationSec: Long?,
     val kind: MediaKind,
+    // stable list identity: playlists can repeat the same webpage_url, so url is not a key
+    val id: Int = 0,
     val variants: List<Variant>,
 ) {
     /** Highest-res variant with audio already muxed in; else highest-res video-only (needs mux). */

@@ -57,9 +57,9 @@ class ShareActivity : ComponentActivity() {
                     onDownload = { selection ->
                         // only carry a domain when the resolve actually needed cookies
                         val domain = lastUrl?.takeIf { resolvedWithCookies }?.let(::hostOf)
-                        Enqueue.enqueue(this, selection, cookieDomain = domain)
                         Toast.makeText(this, "Queued ${selection.size}", Toast.LENGTH_SHORT).show()
-                        finish()
+                        // finish() only after the FGS start: API 31+ bans background FGS starts
+                        Enqueue.enqueue(this, selection, cookieDomain = domain, onDone = ::finish)
                     },
                 )
             }
