@@ -5,6 +5,8 @@
 - Design system chosen: dark Material 3, burnt-orange primary `oklch(0.76 0.13 40)` on neutral near-black `oklch(0.115 0 0)`; teal accent for info; radius: sheets 28 / cards 12 / chips 8 / buttons pill. Tokens live at top of mockups.html.
 
 ## Next
+- Both light + dark themes, auto-follow system (mockups are dark-only so far).
+- Engine update UX: in-app banner when new yt-dlp version detected → tap → confirm dialog → update. Update button in settings stays.
 - Scaffold Gradle project (copy version catalog from ~/repos/visit-logs/android).
 - Build order per PROMPT.md: resolver → share activity → result list → downloads service.
 - Translate mockup tokens into Compose M3 theme.
