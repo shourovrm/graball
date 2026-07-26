@@ -1,6 +1,10 @@
 package com.graball.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import com.graball.prefs.Prefs
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -63,6 +67,21 @@ fun GraballTheme(
 ) {
     MaterialTheme(
         colorScheme = if (darkTheme) DarkColors else LightColors,
+        content = content,
+    )
+}
+
+/** Theme following the user's settings pref: "system" | "light" | "dark". */
+@Composable
+fun GraballThemeFromPrefs(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val mode by Prefs.theme(context).collectAsState(initial = "system")
+    GraballTheme(
+        darkTheme = when (mode) {
+            "light" -> false
+            "dark" -> true
+            else -> isSystemInDarkTheme()
+        },
         content = content,
     )
 }

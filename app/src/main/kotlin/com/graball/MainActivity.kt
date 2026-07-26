@@ -27,7 +27,7 @@ import com.graball.browser.BrowserScreen
 import com.graball.engine.EngineUpdateBanner
 import com.graball.ui.downloads.DownloadsScreen
 import com.graball.ui.settings.SettingsScreen
-import com.graball.ui.theme.GraballTheme
+import com.graball.ui.theme.GraballThemeFromPrefs
 
 class MainActivity : ComponentActivity() {
 
@@ -42,7 +42,7 @@ class MainActivity : ComponentActivity() {
             notifPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
         }
         setContent {
-            GraballTheme {
+            GraballThemeFromPrefs {
                 // ponytail: 3 fixed tabs, plain index state — NavHost when deep links/backstack needed
                 var tab by rememberSaveable { mutableIntStateOf(0) }
                 Scaffold(

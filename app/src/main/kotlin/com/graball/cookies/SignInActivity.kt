@@ -25,7 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.graball.ui.theme.GraballTheme
+import com.graball.ui.theme.GraballThemeFromPrefs
 
 /**
  * Plain in-app sign-in WebView: the user logs in, cookies land in this app's own CookieManager.
@@ -53,7 +53,7 @@ class SignInActivity : ComponentActivity() {
         }
 
         setContent {
-            GraballTheme {
+            GraballThemeFromPrefs {
                 // ponytail: no canGoBack state to keep in sync -- ask the WebView at press time
                 BackHandler { if (web.canGoBack()) web.goBack() else finish() }
                 Column(Modifier.fillMaxSize()) {

@@ -18,7 +18,7 @@ import com.graball.download.Enqueue
 import com.graball.resolve.ResolveResult
 import com.graball.resolve.Resolver
 import com.graball.resolve.UrlExtractor
-import com.graball.ui.theme.GraballTheme
+import com.graball.ui.theme.GraballThemeFromPrefs
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -45,7 +45,7 @@ class ShareActivity : ComponentActivity() {
         }
 
         setContent {
-            GraballTheme {
+            GraballThemeFromPrefs {
                 ShareSheet(
                     state = uiState,
                     onDismiss = ::finish,
