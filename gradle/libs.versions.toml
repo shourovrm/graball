@@ -1,0 +1,45 @@
+[versions]
+agp = "8.13.0"
+kotlin = "2.4.0"
+ksp = "2.3.9"
+composeBom = "2026.06.01"
+activityCompose = "1.10.1"
+coreKtx = "1.16.0"
+material3 = "1.4.0"
+kotlinxSerializationJson = "1.11.0"
+datastorePreferences = "1.2.1"
+room = "2.8.4"
+work = "2.11.2"
+navigationCompose = "2.9.7"
+junit = "4.13.2"
+youtubedl = "0.18.1"
+lifecycleRuntime = "2.9.4"
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+
+[libraries]
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-graphics = { module = "androidx.compose.ui:ui-graphics" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-material3 = { module = "androidx.compose.material3:material3", version.ref = "material3" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+core-ktx = { module = "androidx.core:core-ktx", version.ref = "coreKtx" }
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+datastore-preferences = { module = "androidx.datastore:datastore-preferences", version.ref = "datastorePreferences" }
+room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
+room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
+work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
+navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigationCompose" }
+compose-material-icons-extended = { module = "androidx.compose.material:material-icons-extended" }
+junit = { module = "junit:junit", version.ref = "junit" }
+youtubedl-library = { module = "io.github.junkfood02.youtubedl-android:library", version.ref = "youtubedl" }
+youtubedl-ffmpeg = { module = "io.github.junkfood02.youtubedl-android:ffmpeg", version.ref = "youtubedl" }
+lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntime" }
