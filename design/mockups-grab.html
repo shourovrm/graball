@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>graball · non-video grab panel — 3 directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<style>
+/* ---------- tokens: identical to design/mockups.html, do not fork ---------- */
+:root{
+  --bg:        oklch(0.115 0 0);
+  --surface:   oklch(0.165 0.004 40);
+  --surface-2: oklch(0.21 0.005 40);
+  --surface-3: oklch(0.26 0.006 40);
+  --outline:   oklch(0.33 0.006 40);
+  --ink:       oklch(0.93 0.004 45);
+  --muted:     oklch(0.68 0.007 45);
+  --primary:   oklch(0.76 0.13 40);
+  --on-primary:oklch(0.23 0.06 40);
+  --primary-container: oklch(0.34 0.075 40);
+  --on-primary-container: oklch(0.90 0.07 45);
+  --accent:    oklch(0.80 0.09 200);
+  --good:      oklch(0.78 0.13 150);
+  --bad:       oklch(0.74 0.15 25);
+  --bad-container: oklch(0.30 0.09 25);
+  --r-sheet: 28px; --r-card: 12px; --r-chip: 8px;
+  /* semantic z-scale */
+  --z-sticky: 10; --z-scrim: 20; --z-sheet: 30; --z-bar: 40;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background: oklch(0.08 0 0);
+  color: var(--ink);
+  font-family: Roboto, system-ui, sans-serif;
+  padding: 48px 32px 64px;
+}
+.ms{
+  font-family:'Material Symbols Rounded';
+  font-weight:normal;font-style:normal;line-height:1;
+  letter-spacing:normal;text-transform:none;display:inline-block;
+  white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;
+  font-variation-settings:'opsz' 24,'wght' 400;
+  font-size:22px; user-select:none;
+}
+.ms.fill{font-variation-settings:'FILL' 1,'opsz' 24}
+.ms.sm{font-size:18px}
+.ms.xs{font-size:15px}
+
+/* ---------- gallery shell ---------- */
+header.gallery{max-width:74ch;margin:0 auto 40px}
+header.gallery h1{font-size:1.5rem;font-weight:500;letter-spacing:-0.01em}
+header.gallery p{color:var(--muted);margin-top:10px;line-height:1.55;text-wrap:pretty}
+header.gallery p+p{margin-top:8px}
+header.gallery code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-size:0.9em}
+.frames{display:flex;flex-wrap:wrap;gap:44px;justify-content:center;align-items:flex-start}
+figure{display:flex;flex-direction:column;gap:12px;width:412px}
+figcaption{color:var(--muted);font-size:0.85rem;line-height:1.5}
+figcaption b{color:var(--ink);font-weight:500;display:block;margin-bottom:4px;font-size:0.95rem}
+figcaption .tradeoff{display:block;margin-top:6px}
+figcaption .tradeoff em{color:var(--ink);font-style:normal;font-weight:500}
+
+/* ---------- phone frame ---------- */
+.phone{
+  width:412px;height:892px;
+  background:var(--bg);
+  border-radius:30px;
+  border:1px solid oklch(0.28 0 0);
+  overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+  font-size:15px;
+}
+.statusbar{
+  height:36px;flex:none;display:flex;align-items:center;
+  justify-content:space-between;padding:0 18px;font-size:13px;font-weight:500;
+}
+.statusbar .right{display:flex;gap:5px;align-items:center}
+.statusbar .ms{font-size:15px}
+.gesture{height:22px;flex:none;display:flex;align-items:center;justify-content:center}
+.gesture::before{content:"";width:120px;height:4px;border-radius:2px;background:oklch(0.45 0 0)}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* ---------- shared components (mirrors mockups.html) ---------- */
+.iconbtn{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.iconbtn.on{background:var(--primary-container);color:var(--on-primary-container)}
+.btn{
+  border:none;font:inherit;font-weight:500;font-size:14px;
+  height:40px;padding:0 24px;border-radius:20px;
+  display:inline-flex;align-items:center;gap:8px;justify-content:center;cursor:pointer;
+}
+.btn.filled{background:var(--primary);color:var(--on-primary)}
+.btn.text{background:none;color:var(--primary);padding:0 12px}
+.chip{
+  height:32px;padding:0 14px;border-radius:var(--r-chip);
+  border:1px solid var(--outline);color:var(--ink);
+  display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:500;flex:none;
+}
+.chip .count{color:var(--muted);font-weight:400}
+.chip.sel{background:var(--primary-container);border-color:transparent;color:var(--on-primary-container)}
+.chip.sel .count{color:var(--on-primary-container);opacity:0.8}
+.chip .ms{font-size:17px}
+.checkbox{width:20px;height:20px;border-radius:4px;border:2px solid var(--muted);flex:none}
+.checkbox.on{background:var(--primary);border-color:var(--primary);position:relative}
+.checkbox.on::after{
+  content:"check";font-family:'Material Symbols Rounded';font-size:16px;font-weight:700;
+  color:var(--on-primary);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+}
+.linprog{height:4px;border-radius:2px;background:var(--primary-container);overflow:hidden;position:relative}
+.linprog::after{
+  content:"";position:absolute;inset:0;width:35%;border-radius:2px;background:var(--primary);
+  animation:indet 1.4s cubic-bezier(0.65,0,0.35,1) infinite;
+}
+@keyframes indet{from{transform:translateX(-110%)}to{transform:translateX(400%)}}
+@media (prefers-reduced-motion: reduce){.linprog::after{animation:none;width:100%;opacity:0.5}}
+
+/* ---------- browser behind the sheet ---------- */
+.urlbar{
+  margin:8px 16px;height:48px;border-radius:24px;background:var(--surface-2);
+  display:flex;align-items:center;gap:10px;padding:0 16px;font-size:14px;
+}
+.urlbar .lock{color:var(--muted)}
+.webview{flex:1;background:oklch(0.97 0.002 80);color:oklch(0.25 0.01 80);overflow:hidden;padding:18px 16px}
+.webview h2{font-size:18px;line-height:1.3;font-weight:700;letter-spacing:-0.01em}
+.webview .byline{font-size:12px;color:oklch(0.5 0.01 80);margin:7px 0 14px}
+.webview .pgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.webview .pgrid span{aspect-ratio:1;border-radius:6px}
+.scrim{position:absolute;inset:0;background:oklch(0 0 0 / 0.5);z-index:var(--z-scrim)}
+
+/* photo stand-ins: no network assets in a mockup, so gradients play the part */
+.px1{background:linear-gradient(150deg,oklch(0.72 0.11 250),oklch(0.36 0.08 285))}
+.px2{background:linear-gradient(150deg,oklch(0.80 0.12 75),oklch(0.42 0.10 40))}
+.px3{background:linear-gradient(150deg,oklch(0.70 0.10 165),oklch(0.33 0.07 200))}
+.px4{background:linear-gradient(150deg,oklch(0.66 0.13 20),oklch(0.30 0.09 340))}
+.px5{background:linear-gradient(150deg,oklch(0.78 0.06 300),oklch(0.38 0.06 265))}
+.px6{background:linear-gradient(150deg,oklch(0.74 0.09 130),oklch(0.35 0.06 155))}
+
+/* ---------- the grab sheet ---------- */
+.sheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:var(--z-sheet);
+  background:var(--surface);border-radius:var(--r-sheet) var(--r-sheet) 0 0;
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sheet .handle{width:32px;height:4px;border-radius:2px;background:var(--muted);opacity:0.5;margin:8px auto 6px;flex:none}
+.sheethead{display:flex;align-items:center;gap:6px;padding:2px 8px 6px 16px;flex:none}
+.sheethead .t{font-size:16px;font-weight:500}
+.sheethead .s{color:var(--muted);font-size:12.5px;margin-top:2px}
+.sheethead .spacer{flex:1}
+.sheetbody{flex:1;overflow:hidden;position:relative}
+.sheetfoot{
+  flex:none;display:flex;align-items:center;gap:12px;padding:10px 16px 14px;
+  background:var(--surface-2);z-index:var(--z-bar);
+}
+.sheetfoot .sum{flex:1;min-width:0;font-size:13.5px}
+.sheetfoot .sum span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.sheetfoot .btn.filled{height:48px;border-radius:24px;font-size:15px;flex:none}
+.chiprow{display:flex;gap:8px;padding:8px 16px;overflow:hidden;flex:none}
+
+/* type badge: replaces a thumbnail when the file has no pixels to show */
+.ext{
+  width:40px;height:40px;border-radius:10px;flex:none;background:var(--surface-2);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:0.02em;
+}
+.ext.doc{background:oklch(0.30 0.05 25);color:oklch(0.88 0.06 30)}
+.ext.arc{background:oklch(0.30 0.04 95);color:oklch(0.88 0.06 95)}
+.ext.vid{background:var(--primary-container);color:var(--on-primary-container)}
+.ext.aud{background:oklch(0.29 0.05 200);color:oklch(0.87 0.06 200)}
+.ext.img{overflow:hidden;padding:0}
+.ext.img i{width:100%;height:100%;display:block;border-radius:10px}
+
+.row{display:flex;align-items:center;gap:14px;padding:9px 16px;min-height:58px}
+.row.sel{background:oklch(0.34 0.075 40 / 0.28)}
+.row .body{flex:1;min-width:0}
+.row .name{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .meta{color:var(--muted);font-size:12.5px;margin-top:3px;display:flex;align-items:center;gap:6px}
+.row .meta .dot{opacity:0.5}
+.row .meta .probing{color:var(--accent)}
+.divider{height:1px;background:var(--outline);opacity:0.5;margin-left:70px}
+
+/* ============ A · Links / Media tabs ============ */
+.tabs{display:flex;flex:none;padding:0 8px;gap:4px;border-bottom:1px solid var(--outline)}
+.tabs .tab{
+  flex:1;height:48px;display:flex;align-items:center;justify-content:center;gap:8px;
+  font-size:14px;font-weight:500;color:var(--muted);position:relative;
+}
+.tabs .tab.on{color:var(--primary)}
+.tabs .tab.on::after{content:"";position:absolute;left:12px;right:12px;bottom:0;height:3px;border-radius:3px 3px 0 0;background:var(--primary)}
+.tabs .tab .n{
+  font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:9px;
+  background:var(--surface-3);color:var(--muted);
+}
+.tabs .tab.on .n{background:var(--primary-container);color:var(--on-primary-container)}
+
+/* ============ B · grouped sections ============ */
+.grouphead{
+  position:sticky;top:0;z-index:var(--z-sticky);background:var(--surface);
+  display:flex;align-items:center;gap:10px;padding:14px 16px 8px;
+}
+.grouphead .gt{font-size:13px;font-weight:500;letter-spacing:0.01em}
+.grouphead .gn{color:var(--muted);font-size:13px}
+.grouphead .spacer{flex:1}
+.grouphead .ga{color:var(--primary);font-size:13px;font-weight:500}
+.thumbgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:2px 16px 10px}
+.thumb{position:relative;aspect-ratio:1;border-radius:8px;overflow:hidden}
+.thumb i{position:absolute;inset:0;display:block}
+.thumb .mark{
+  position:absolute;top:5px;left:5px;width:18px;height:18px;border-radius:50%;
+  border:2px solid oklch(1 0 0 / 0.9);background:oklch(0 0 0 / 0.35);
+}
+.thumb.on .mark{background:var(--primary);border-color:var(--primary)}
+.thumb.on .mark::after{
+  content:"check";font-family:'Material Symbols Rounded';font-size:14px;font-weight:700;color:var(--on-primary);
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+}
+.thumb.on::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 3px var(--primary);border-radius:8px}
+.thumb .sz{
+  position:absolute;left:0;right:0;bottom:0;padding:9px 6px 4px;font-size:10.5px;color:oklch(0.98 0 0);
+  background:linear-gradient(oklch(0 0 0/0), oklch(0 0 0/0.75));
+}
+.thumb.more{display:flex;align-items:center;justify-content:center;background:var(--surface-2);color:var(--muted);font-size:13px;font-weight:500}
+
+/* ============ C · grid-first canvas ============ */
+.gridtop{display:flex;align-items:center;gap:8px;padding:0 8px 8px 16px;flex:none}
+.gridtop .seg{display:flex;background:var(--surface-2);border-radius:var(--r-chip);padding:3px;gap:2px}
+.gridtop .seg span{
+  height:30px;padding:0 12px;border-radius:6px;display:flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:500;color:var(--muted);
+}
+.gridtop .seg span.on{background:var(--primary-container);color:var(--on-primary-container)}
+.gridtop .spacer{flex:1}
+.canvas{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:0 3px}
+.cell{position:relative;aspect-ratio:1;overflow:hidden;border-radius:4px}
+.cell i{position:absolute;inset:0;display:block}
+.cell .mark{
+  position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;
+  border:2px solid oklch(1 0 0 / 0.9);background:oklch(0 0 0 / 0.35);
+}
+.cell.on .mark{background:var(--primary);border-color:var(--primary)}
+.cell.on .mark::after{
+  content:"check";font-family:'Material Symbols Rounded';font-size:15px;font-weight:700;color:var(--on-primary);
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+}
+.cell.on::after{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 3px var(--primary);border-radius:4px}
+.cell .cap{
+  position:absolute;left:0;right:0;bottom:0;padding:14px 7px 5px;font-size:10.5px;color:oklch(0.98 0 0);
+  background:linear-gradient(oklch(0 0 0/0), oklch(0 0 0/0.78));
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+/* non-visual file in a visual grid: it gets a tile, but an honest one */
+.cell.file{background:var(--surface-2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px}
+.cell.file .ms{color:var(--muted);font-size:26px}
+.cell.file .ft{font-size:11px;font-weight:700;color:var(--ink)}
+.cell.file .fn{font-size:10px;color:var(--muted);padding:0 8px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+
+/* ---------- states frame ---------- */
+.statecard{margin:10px 16px;padding:14px 16px;background:var(--surface);border-radius:var(--r-card)}
+.statecard h3{font-size:12.5px;font-weight:500;color:var(--muted);margin-bottom:12px;letter-spacing:0.02em}
+.scanbar{display:flex;align-items:center;gap:12px;padding:10px 16px;background:var(--surface-2)}
+.scanbar .t{flex:1;font-size:13.5px}
+.scanbar .t span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.empty{display:flex;flex-direction:column;align-items:center;gap:10px;padding:26px 24px;text-align:center}
+.empty .ms{font-size:38px;color:var(--muted)}
+.empty .t{font-size:14.5px}
+.empty .s{color:var(--muted);font-size:13px;line-height:1.5;max-width:34ch}
+</style>
+</head>
+<body>
+
+<header class="gallery">
+  <h1>Grab panel · three directions for non-video files</h1>
+  <p>Same page in every frame: a NASA press-kit gallery holding 42 images, 6 PDFs, 2 videos, 1 zip.
+     Same sheet, same tokens as <code>design/mockups.html</code> — only the presentation model differs.</p>
+  <p>All three assume the detection fix (lazy-image gate removed, <code>srcset</code>/<code>data-src</code> scraped,
+     rescan on DOM mutation, <code>HEAD</code> probe for type + size). Sizes shown as <span style="color:var(--accent)">probing</span>
+     are the probe still in flight — the row is selectable before it lands.</p>
+</header>
+
+<div class="frames">
+
+<!-- ============================================================ A -->
+<figure>
+<div class="phone">
+  <div class="statusbar"><span>9:41</span><span class="right"><span class="ms">signal_cellular_alt</span><span class="ms">wifi</span><span class="ms">battery_full</span></span></div>
+  <div class="screen">
+    <div class="urlbar"><span class="ms sm lock">lock</span><span style="flex:1">nasa.gov/artemis/press-kit</span><span class="ms sm">arrow_forward</span></div>
+    <div class="webview">
+      <h2>Artemis II Press Kit</h2>
+      <div class="byline">Media resources · updated 4 Aug 2026</div>
+      <div class="pgrid">
+        <span class="px1"></span><span class="px2"></span><span class="px3"></span>
+        <span class="px4"></span><span class="px5"></span><span class="px6"></span>
+      </div>
+    </div>
+    <div class="scrim"></div>
+
+    <div class="sheet" style="height:72%">
+      <div class="handle"></div>
+      <div class="sheethead">
+        <div>
+          <div class="t">8 selected</div>
+          <div class="s">nasa.gov · 51 found</div>
+        </div>
+        <span class="spacer"></span>
+        <span class="iconbtn"><span class="ms">search</span></span>
+        <span class="iconbtn"><span class="ms">grid_view</span></span>
+        <span class="iconbtn"><span class="ms">refresh</span></span>
+        <span class="iconbtn"><span class="ms">more_vert</span></span>
+      </div>
+
+      <div class="tabs">
+        <div class="tab on">Media <span class="n">44</span></div>
+        <div class="tab">Links <span class="n">7</span></div>
+      </div>
+
+      <div class="chiprow">
+        <span class="chip sel"><span class="ms xs">check</span>All <span class="count">44</span></span>
+        <span class="chip">Images <span class="count">42</span></span>
+        <span class="chip">Video <span class="count">2</span></span>
+        <span class="chip">Audio <span class="count">0</span></span>
+      </div>
+
+      <div class="sheetbody">
+        <div class="row sel">
+          <span class="checkbox on"></span>
+          <span class="ext img"><i class="px1"></i></span>
+          <span class="body">
+            <div class="name">artemis-crew-portrait-hires.jpg</div>
+            <div class="meta">4096×2731<span class="dot">·</span>8.4 MB<span class="dot">·</span>full size</div>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="row sel">
+          <span class="checkbox on"></span>
+          <span class="ext img"><i class="px2"></i></span>
+          <span class="body">
+            <div class="name">sls-rollout-pad39b.png</div>
+            <div class="meta">3200×2133<span class="dot">·</span>6.1 MB</div>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="row">
+          <span class="checkbox"></span>
+          <span class="ext vid"><span class="ms sm fill">movie</span></span>
+          <span class="body">
+            <div class="name">launch-broadcast.m3u8</div>
+            <div class="meta">1080p<span class="dot">·</span>hls stream<span class="dot">·</span>3 variants</div>
+          </span>
+          <span class="ms chev" style="color:var(--muted)">expand_more</span>
+        </div>
+        <div class="divider"></div>
+        <div class="row sel">
+          <span class="checkbox on"></span>
+          <span class="ext img"><i class="px3"></i></span>
+          <span class="body">
+            <div class="name">earthrise-2026-04.webp</div>
+            <div class="meta">2048×2048<span class="dot">·</span><span class="probing">probing…</span></div>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="row">
+          <span class="checkbox"></span>
+          <span class="ext img"><i class="px4"></i></span>
+          <span class="body">
+            <div class="name">mission-patch.avif</div>
+            <div class="meta">1024×1024<span class="dot">·</span>318 KB</div>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="row sel">
+          <span class="checkbox on"></span>
+          <span class="ext img"><i class="px5"></i></span>
+          <span class="body">
+            <div class="name">orion-capsule-interior.jpg</div>
+            <div class="meta">4096×2304<span class="dot">·</span>7.9 MB</div>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="row">
+          <span class="checkbox"></span>
+          <span class="ext img"><i class="px6"></i></span>
+          <span class="body">
+            <div class="name">trajectory-diagram.png</div>
+            <div class="meta">1600×900<span class="dot">·</span>412 KB</div>
+          </span>
+        </div>
+      </div>
+
+      <div class="sheetfoot">
+        <span class="sum">8 selected<span>31.7 MB · 2 sizes unknown</span></span>
+        <span class="btn text">Cancel</span>
+        <span class="btn filled"><span class="ms sm">download</span>Download 8</span>
+      </div>
+    </div>
+  </div>
+  <div class="gesture"></div>
+</div>
+<figcaption>
+  <b>A · Links / Media tabs</b>
+  DownThemAll's own split, ported. <em>Media</em> = things the page embeds (<code>img</code>, <code>video</code>, <code>source</code>, network hits).
+  <em>Links</em> = <code>a[href]</code> targets — the PDFs, zips and full-res originals behind a thumbnail. Type chips filter within a tab.
+  <span class="tradeoff"><em>Wins:</em> the one split that matters, since a gallery thumbnail and its linked original are two different files.
+  <em>Costs:</em> a file can only live in one tab, so "where did the PDF go" is a real question the first time.</span>
+</figcaption>
+</figure>
+
+<!-- ============================================================ B -->
+<figure>
+<div class="phone">
+  <div class="statusbar"><span>9:41</span><span class="right"><span class="ms">signal_cellular_alt</span><span class="ms">wifi</span><span class="ms">battery_full</span></span></div>
+  <div class="screen">
+    <div class="urlbar"><span class="ms sm lock">lock</span><span style="flex:1">nasa.gov/artemis/press-kit</span><span class="ms sm">arrow_forward</span></div>
+    <div class="webview">
+      <h2>Artemis II Press Kit</h2>
+      <div class="byline">Media resources · updated 4 Aug 2026</div>
+      <div class="pgrid">
+        <span class="px1"></span><span class="px2"></span><span class="px3"></span>
+        <span class="px4"></span><span class="px5"></span><span class="px6"></span>
+      </div>
+    </div>
+    <div class="scrim"></div>
+
+    <div class="sheet" style="height:72%">
+      <div class="handle"></div>
+      <div class="sheethead">
+        <div>
+          <div class="t">11 selected</div>
+          <div class="s">nasa.gov · 51 found</div>
+        </div>
+        <span class="spacer"></span>
+        <span class="iconbtn"><span class="ms">search</span></span>
+        <span class="iconbtn"><span class="ms">filter_list</span></span>
+        <span class="iconbtn"><span class="ms">refresh</span></span>
+        <span class="iconbtn"><span class="ms">more_vert</span></span>
+      </div>
+
+      <div class="sheetbody">
+        <div class="grouphead">
+          <span class="ms sm" style="color:var(--muted)">image</span>
+          <span class="gt">Images</span><span class="gn">42 · 214 MB</span>
+          <span class="spacer"></span><span class="ga">Select all</span>
+        </div>
+        <div class="thumbgrid">
+          <div class="thumb on"><i class="px1"></i><span class="mark"></span><span class="sz">8.4 MB</span></div>
+          <div class="thumb on"><i class="px2"></i><span class="mark"></span><span class="sz">6.1 MB</span></div>
+          <div class="thumb"><i class="px3"></i><span class="mark"></span><span class="sz">4.7 MB</span></div>
+          <div class="thumb on"><i class="px4"></i><span class="mark"></span><span class="sz">318 KB</span></div>
+          <div class="thumb on"><i class="px5"></i><span class="mark"></span><span class="sz">7.9 MB</span></div>
+          <div class="thumb"><i class="px6"></i><span class="mark"></span><span class="sz">412 KB</span></div>
+          <div class="thumb on"><i class="px2"></i><span class="mark"></span><span class="sz">5.2 MB</span></div>
+          <div class="thumb more">+35</div>
+        </div>
+
+        <div class="grouphead">
+          <span class="ms sm" style="color:var(--muted)">description</span>
+          <span class="gt">Documents</span><span class="gn">6 · 41 MB</span>
+          <span class="spacer"></span><span class="ga">Select all</span>
+        </div>
+        <div class="row sel">
+          <span class="checkbox on"></span>
+          <span class="ext doc">PDF</span>
+          <span class="body">
+            <div class="name">artemis-ii-press-kit-full.pdf</div>
+            <div class="meta">18.2 MB<span class="dot">·</span>linked</div>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="row sel">
+          <span class="checkbox on"></span>
+          <span class="ext doc">PDF</span>
+          <span class="body">
+            <div class="name">flight-profile-technical.pdf</div>
+            <div class="meta"><span class="probing">probing…</span><span class="dot">·</span>linked</div>
+          </span>
+        </div>
+        <div class="divider"></div>
+        <div class="row">
+          <span class="checkbox"></span>
+          <span class="ext doc">CSV</span>
+          <span class="body">
+            <div class="name">telemetry-nominal.csv</div>
+            <div class="meta">1.1 MB</div>
+          </span>
+        </div>
+
+        <div class="grouphead">
+          <span class="ms sm" style="color:var(--muted)">movie</span>
+          <span class="gt">Video</span><span class="gn">2</span>
+          <span class="spacer"></span><span class="ga">Select all</span>
+        </div>
+        <div class="row">
+          <span class="checkbox"></span>
+          <span class="ext vid"><span class="ms sm fill">movie</span></span>
+          <span class="body">
+            <div class="name">launch-broadcast.m3u8</div>
+            <div class="meta">1080p<span class="dot">·</span>hls stream<span class="dot">·</span>3 variants</div>
+          </span>
+          <span class="ms chev" style="color:var(--muted)">expand_more</span>
+        </div>
+      </div>
+
+      <div class="sheetfoot">
+        <span class="sum">11 selected<span>52.4 MB · 1 size unknown</span></span>
+        <span class="btn text">Cancel</span>
+        <span class="btn filled"><span class="ms sm">download</span>Download 11</span>
+      </div>
+    </div>
+  </div>
+  <div class="gesture"></div>
+</div>
+<figcaption>
+  <b>B · Grouped by kind, each kind rendered its own way</b>
+  One scroll, sticky group headers with per-group size totals and <em>Select all</em>. Images become a thumbnail grid because pixels
+  identify them; documents and archives stay as rows because the filename is what identifies <em>them</em>.
+  <span class="tradeoff"><em>Wins:</em> nothing is hidden behind a tab, and each type gets the representation it deserves.
+  <em>Costs:</em> two selection affordances (tile mark, row checkbox) in one list, and images push docs below the fold on gallery pages.</span>
+</figcaption>
+</figure>
+
+<!-- ============================================================ C -->
+<figure>
+<div class="phone">
+  <div class="statusbar"><span>9:41</span><span class="right"><span class="ms">signal_cellular_alt</span><span class="ms">wifi</span><span class="ms">battery_full</span></span></div>
+  <div class="screen">
+    <div class="urlbar"><span class="ms sm lock">lock</span><span style="flex:1">nasa.gov/artemis/press-kit</span><span class="ms sm">arrow_forward</span></div>
+    <div class="webview">
+      <h2>Artemis II Press Kit</h2>
+      <div class="byline">Media resources · updated 4 Aug 2026</div>
+      <div class="pgrid">
+        <span class="px1"></span><span class="px2"></span><span class="px3"></span>
+        <span class="px4"></span><span class="px5"></span><span class="px6"></span>
+      </div>
+    </div>
+    <div class="scrim"></div>
+
+    <div class="sheet" style="height:80%">
+      <div class="handle"></div>
+      <div class="sheethead">
+        <div>
+          <div class="t">14 selected</div>
+          <div class="s">nasa.gov · 51 found</div>
+        </div>
+        <span class="spacer"></span>
+        <span class="iconbtn"><span class="ms">search</span></span>
+        <span class="iconbtn"><span class="ms">refresh</span></span>
+        <span class="iconbtn"><span class="ms">more_vert</span></span>
+      </div>
+
+      <div class="gridtop">
+        <span class="seg">
+          <span class="on"><span class="ms xs">grid_view</span>Grid</span>
+          <span><span class="ms xs">list</span>List</span>
+        </span>
+        <span class="spacer"></span>
+        <span class="chip sel">All <span class="count">51</span></span>
+        <span class="chip">PDF <span class="count">6</span></span>
+      </div>
+
+      <div class="sheetbody">
+        <div class="canvas">
+          <div class="cell on"><i class="px1"></i><span class="mark"></span><span class="cap">crew-portrait · 8.4 MB</span></div>
+          <div class="cell on"><i class="px2"></i><span class="mark"></span><span class="cap">sls-rollout · 6.1 MB</span></div>
+          <div class="cell"><i class="px3"></i><span class="mark"></span><span class="cap">earthrise · 4.7 MB</span></div>
+          <div class="cell on"><i class="px4"></i><span class="mark"></span><span class="cap">patch · 318 KB</span></div>
+          <div class="cell file on">
+            <span class="ms">picture_as_pdf</span><span class="ft">PDF</span>
+            <span class="fn">press-kit-full · 18 MB</span><span class="mark"></span>
+          </div>
+          <div class="cell on"><i class="px5"></i><span class="mark"></span><span class="cap">orion-interior · 7.9 MB</span></div>
+          <div class="cell"><i class="px6"></i><span class="mark"></span><span class="cap">trajectory · 412 KB</span></div>
+          <div class="cell on"><i class="px1"></i><span class="mark"></span><span class="cap">pad-39b · 5.2 MB</span></div>
+          <div class="cell file">
+            <span class="ms">folder_zip</span><span class="ft">ZIP</span>
+            <span class="fn">all-hires · 214 MB</span><span class="mark"></span>
+          </div>
+          <div class="cell on"><i class="px3"></i><span class="mark"></span><span class="cap">moon-far-side · 3.3 MB</span></div>
+          <div class="cell on"><i class="px4"></i><span class="mark"></span><span class="cap">eva-suit · 4.1 MB</span></div>
+          <div class="cell file">
+            <span class="ms">movie</span><span class="ft">M3U8</span>
+            <span class="fn">broadcast · 1080p</span><span class="mark"></span>
+          </div>
+          <div class="cell on"><i class="px2"></i><span class="mark"></span><span class="cap">booster-test · 6.8 MB</span></div>
+          <div class="cell"><i class="px5"></i><span class="mark"></span><span class="cap">ground-crew · 2.9 MB</span></div>
+          <div class="cell on"><i class="px6"></i><span class="mark"></span><span class="cap">telescope-view · 5.5 MB</span></div>
+        </div>
+      </div>
+
+      <div class="sheetfoot">
+        <span class="sum">14 selected<span>78.1 MB</span></span>
+        <span class="btn text">Cancel</span>
+        <span class="btn filled"><span class="ms sm">download</span>Download 14</span>
+      </div>
+    </div>
+  </div>
+  <div class="gesture"></div>
+</div>
+<figcaption>
+  <b>C · Grid-first canvas</b>
+  Everything is a tile. Images show themselves; a PDF, zip or stream gets an honest tile with icon, type and short name.
+  Grid ⇄ List toggle for when filenames matter more than pixels; long-press-drag selects a run of tiles.
+  <span class="tradeoff"><em>Wins:</em> fastest possible "grab all the pictures" on an image-heavy page, and full filenames never fight for row width.
+  <em>Costs:</em> the truncated caption is a real loss on <code>signed-url-4f2a…pdf</code>-style names, and a page of 6 PDFs and no images looks silly.</span>
+</figcaption>
+</figure>
+
+<!-- ============================================================ states -->
+<figure>
+<div class="phone">
+  <div class="statusbar"><span>9:41</span><span class="right"><span class="ms">signal_cellular_alt</span><span class="ms">wifi</span><span class="ms">battery_full</span></span></div>
+  <div class="screen" style="background:var(--bg);overflow-y:auto">
+    <div class="statecard">
+      <h3>SCANNING — live count, list already usable</h3>
+      <div class="scanbar" style="border-radius:8px">
+        <span class="ms sm" style="color:var(--primary)">radar</span>
+        <span class="t">Scanning page<span>38 found · lazy images still loading</span></span>
+        <span class="btn text" style="height:32px">Stop</span>
+      </div>
+      <div style="margin-top:10px"><div class="linprog"></div></div>
+    </div>
+
+    <div class="statecard">
+      <h3>NEW HITS AFTER SCROLL — mutation observer fired</h3>
+      <div class="scanbar" style="border-radius:8px;background:var(--primary-container);color:var(--on-primary-container)">
+        <span class="ms sm">add_circle</span>
+        <span class="t">14 new files on this page</span>
+        <span class="btn text" style="height:32px;color:var(--on-primary-container)">Show</span>
+      </div>
+    </div>
+
+    <div class="statecard">
+      <h3>SIZE UNKNOWN — HEAD probe in flight or refused</h3>
+      <div class="row" style="padding-left:0;padding-right:0">
+        <span class="checkbox on"></span>
+        <span class="ext doc">PDF</span>
+        <span class="body">
+          <div class="name">flight-profile-technical.pdf</div>
+          <div class="meta"><span class="probing">probing…</span></div>
+        </span>
+      </div>
+      <div class="divider" style="margin-left:56px"></div>
+      <div class="row" style="padding-left:0;padding-right:0">
+        <span class="checkbox"></span>
+        <span class="ext">BIN</span>
+        <span class="body">
+          <div class="name">download?id=4f2a91</div>
+          <div class="meta">size unknown<span class="dot">·</span>type unknown</div>
+        </span>
+      </div>
+    </div>
+
+    <div class="statecard">
+      <h3>FILTER — glob, applied live</h3>
+      <div class="chiprow" style="padding:0 0 10px">
+        <span class="chip sel"><span class="ms xs">close</span>*.pdf</span>
+        <span class="chip"><span class="ms xs">straighten</span>&gt; 1 MB</span>
+        <span class="chip"><span class="ms xs">add</span>Add filter</span>
+      </div>
+      <div style="color:var(--muted);font-size:12.5px">6 of 51 shown</div>
+    </div>
+
+    <div class="statecard" style="padding:0">
+      <h3 style="padding:14px 16px 0">EMPTY — teaches the next move</h3>
+      <div class="empty">
+        <span class="ms">travel_explore</span>
+        <div class="t">Nothing downloadable here yet</div>
+        <div class="s">Some pages load files only after you scroll or press play. Scroll the page, then rescan.</div>
+        <span class="btn filled" style="margin-top:4px"><span class="ms sm">refresh</span>Rescan page</span>
+      </div>
+    </div>
+  </div>
+  <div class="gesture"></div>
+</div>
+<figcaption>
+  <b>States — shared by all three directions</b>
+  Whichever layout wins, these are the same: scanning is non-blocking (list usable while it fills), late DOM hits arrive as a
+  dismissible "14 new files" bar rather than a jumping list, unknown sizes stay selectable, and the empty state names the
+  actual cause (lazy loading) instead of shrugging.
+</figcaption>
+</figure>
+
+</div>
+</body>
+</html>

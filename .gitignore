@@ -10,3 +10,4 @@ keystore.properties
 captures/
 .cxx/
 *.apk
+.playwright-mcp/
