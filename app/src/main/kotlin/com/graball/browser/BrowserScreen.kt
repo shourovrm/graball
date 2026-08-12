@@ -64,6 +64,9 @@ import com.graball.ui.picker.PickerScreen
 import java.net.URLEncoder
 import kotlinx.coroutines.launch
 
+/** Bootstrap page for a WebView with nothing to show yet -- never treated as a visited URL. */
+private const val BLANK_PAGE = "about:blank"
+
 private sealed interface BrowserSheetState {
     object Resolving : BrowserSheetState
     data class Found(val items: List<ResolvedItem>) : BrowserSheetState
@@ -149,8 +152,14 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
                 adblockEnabled = { adblockFlag.value },
                 httpsOnly = { httpsOnlyFlag.value },
             ) { view, title, url ->
-                pageTitle = title
-                url?.let { urlText = it; currentUrl = it }
+                // about:blank is our paint-fix bootstrap, not somewhere the user went: keep it out of
+                // the address bar and title, and let the empty state come back when we land on it
+                val real = url?.takeIf { it != BLANK_PAGE }
+                if (real == null) {
+                    pageTitle = null; currentUrl = null; urlText = ""
+                } else {
+                    pageTitle = title; urlText = real; currentUrl = real
+                }
                 backEnabled = view.canGoBack()
             }
             webChromeClient = object : WebChromeClient() {
@@ -158,7 +167,9 @@ fun BrowserScreen(startUrl: String? = null, modifier: Modifier = Modifier) {
                     progress = newProgress
                 }
             }
-            startUrl?.takeIf { it.isNotBlank() }?.let { loadUrl(it) }
+            // a WebView that never loads anything paints black over the address bar strip above it,
+            // so give it a blank page even when we have no URL yet
+            loadUrl(startUrl?.takeIf { it.isNotBlank() } ?: BLANK_PAGE)
         }
     }
 

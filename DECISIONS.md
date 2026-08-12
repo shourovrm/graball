@@ -18,6 +18,7 @@
 - Device-verify address bar rework + adblock + https-only (no gradle run yet, review-only pass).
 
 ## Gotchas
+- A WebView that is attached but never told to load anything paints black **over the address bar strip above it** — the bar is laid out and functional (uiautomator sees the EditText and typed text) but completely invisible. Always `loadUrl("about:blank")` at creation, and filter that URL out of address-bar/title/empty-state state.
 - DirectDownloader chunking only starts on a real **206** probe response — an `Accept-Ranges: bytes` header alone is a promise servers break, and a 200 full body written into chunk slot 2+ silently corrupts the merge.
 - Every DirectDownloader request sends `Accept-Encoding: identity`. With gzip on, HttpURLConnection transparently decodes, byte offsets stop matching Content-Length, and every resume lands at the wrong offset.
 - A fully-downloaded chunk on resume must be detected with `start + already > chunkEnd` (not `> chunkEnd + 1`), else it re-requests `bytes=(end+1)-end` and takes a 416.
