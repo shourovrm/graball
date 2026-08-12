@@ -25,6 +25,8 @@ import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material.icons.filled.Movie
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,6 +59,8 @@ fun DownloadCard(
     onDelete: () -> Unit,
     onDeleteFile: () -> Unit,
     onOpen: () -> Unit,
+    onPause: () -> Unit,
+    onResume: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Card(
@@ -85,10 +89,10 @@ fun DownloadCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                RowAction(entity, onCancel)
+                RowAction(entity, onCancel, onPause, onResume)
             }
 
-            if (entity.status == "RUNNING") {
+            if (entity.status == "RUNNING" || entity.status == "PAUSED") {
                 Spacer(Modifier.height(10.dp))
                 if (entity.fragCount > 1) {
                     FragmentBar(entity.fragIndex, entity.fragCount)
@@ -115,10 +119,21 @@ fun DownloadCard(
 }
 
 @Composable
-private fun RowAction(entity: DownloadEntity, onCancel: () -> Unit) {
+private fun RowAction(entity: DownloadEntity, onCancel: () -> Unit, onPause: () -> Unit, onResume: () -> Unit) {
     when (entity.status) {
-        "RUNNING", "QUEUED" -> IconButton(onClick = onCancel) {
+        "QUEUED" -> IconButton(onClick = onCancel) {
             Icon(Icons.Filled.Cancel, contentDescription = "Cancel")
+        }
+        "RUNNING" -> Row {
+            IconButton(onClick = onPause) {
+                Icon(Icons.Filled.Pause, contentDescription = "Pause")
+            }
+            IconButton(onClick = onCancel) {
+                Icon(Icons.Filled.Cancel, contentDescription = "Cancel")
+            }
+        }
+        "PAUSED" -> IconButton(onClick = onResume) {
+            Icon(Icons.Filled.PlayArrow, contentDescription = "Resume")
         }
         "DONE" -> Icon(
             Icons.Filled.CheckCircle,
@@ -130,7 +145,10 @@ private fun RowAction(entity: DownloadEntity, onCancel: () -> Unit) {
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
         )
-        "MUXING", "MOVING" -> Icon(
+        "MUXING" -> IconButton(onClick = onPause) {
+            Icon(Icons.Filled.Pause, contentDescription = "Pause")
+        }
+        "MOVING" -> Icon(
             Icons.Filled.HourglassTop,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -221,6 +239,7 @@ private fun statusColor(status: String) = when (status) {
     "MUXING", "MOVING" -> MaterialTheme.colorScheme.secondary
     "DONE" -> MaterialTheme.colorScheme.tertiary
     "FAILED" -> MaterialTheme.colorScheme.error
+    // PAUSED: muted, not error -- deliberately stopped, not failed
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
@@ -232,6 +251,7 @@ private fun statusLine(d: DownloadEntity): String = when (d.status) {
     "MOVING" -> "Saving…"
     "DONE" -> "Done · tap to open"
     "FAILED" -> errorSentence(d.errorClass)
+    "PAUSED" -> "Paused"
     else -> d.status
 }
 

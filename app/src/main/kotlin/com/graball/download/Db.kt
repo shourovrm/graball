@@ -21,6 +21,8 @@ object Status {
     const val MOVING = "MOVING"
     const val DONE = "DONE"
     const val FAILED = "FAILED"
+    /** User-initiated hold: not active, not stale-resettable, not picked up by nextQueued(). */
+    const val PAUSED = "PAUSED"
 
     /** Keep in sync with the SQL literals in DownloadDao's active-state queries. */
     val ACTIVE = listOf(RUNNING, MUXING, MOVING, RESOLVING)

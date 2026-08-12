@@ -74,6 +74,8 @@ fun DownloadsScreen(modifier: Modifier = Modifier) {
                     onDelete = { scope.launch { dao.delete(d.id) } },
                     onDeleteFile = { scope.launch { deleteFile(context, d.mediaUri); dao.delete(d.id) } },
                     onOpen = { openMedia(context, d.mediaUri) },
+                    onPause = { DownloadService.pause(context, d.id) },
+                    onResume = { DownloadService.resume(context, d.id) },
                 )
             }
         }
