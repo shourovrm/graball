@@ -33,6 +33,14 @@ data class ResolvedItem(
             ?: variants.maxByOrNull { it.height ?: -1 }
 }
 
+/** Extension of the URL's last path segment, lowercased, "" if none. Must NOT be taken from the
+ *  whole URL: an extensionless path would otherwise return the tail of the host ("com/u/0/d/..."). */
+fun extOf(url: String): String =
+    url.substringBefore('?').substringBefore('#')
+        .substringAfterLast('/')
+        .substringAfterLast('.', "")
+        .lowercase()
+
 /** "1080p · mp4 · 213 MB" style label. */
 fun humanSize(bytes: Long?): String? {
     if (bytes == null || bytes <= 0) return null

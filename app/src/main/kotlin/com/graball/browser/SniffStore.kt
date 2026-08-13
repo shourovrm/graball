@@ -3,6 +3,8 @@ package com.graball.browser
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.graball.resolve.MediaKind
+import com.graball.resolve.extOf
+import java.net.URI
 
 /** Where a hit was observed. */
 enum class Source { NETWORK, DOM, MEDIA_HOOK }
@@ -28,6 +30,17 @@ private fun mimeKind(mime: String?): MediaKind? = when {
     else -> null
 }
 
+// lh3/lh4/.../googleusercontent.com and drive.google.com/thumbnail only ever serve
+// fixed-size preview crops, never the real file — the real Drive files come from
+// com.graball.resolve.GoogleDrive.listFolder(), which Resolver.resolve() calls instead.
+private val LH_HOST = Regex("""^lh\d+\.googleusercontent\.com$""")
+
+private fun isDrivePreview(url: String): Boolean = runCatching {
+    val uri = URI(url)
+    val host = uri.host?.lowercase() ?: return@runCatching false
+    LH_HOST.matches(host) || (host == "drive.google.com" && uri.path?.startsWith("/thumbnail") == true)
+}.getOrDefault(false)
+
 /**
  * Per-page sniffed hit collection. Dedup by URL, classify by file extension (mime hint as
  * fallback when the URL has none). Drops noise: tiny/static assets, tracking-pixel gifs seen
@@ -45,8 +58,8 @@ class SniffStore {
             return
         }
         if (url.startsWith("data:") || url.startsWith("blob:")) return
-        val path = url.substringBefore('?').substringBefore('#')
-        val ext = path.substringAfterLast('.', "").lowercase()
+        if (isDrivePreview(url)) return
+        val ext = extOf(url)
         if (ext in SKIP_EXT) return
         if (ext == "gif" && source == Source.NETWORK) return // tracking pixels
         val kind = KIND_BY_EXT[ext] ?: mimeKind(mimeHint) ?: return

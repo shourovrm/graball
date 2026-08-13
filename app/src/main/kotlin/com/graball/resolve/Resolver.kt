@@ -31,6 +31,10 @@ private val DIRECT_KINDS: Map<String, MediaKind> = buildMap {
 /** [context] is only needed for the cookie export; callers that never pass withCookies can omit it. */
 class Resolver(private val context: Context? = null) {
     suspend fun resolve(url: String, withCookies: Boolean = false): ResolveResult = withContext(Dispatchers.IO) {
+        if (GoogleDrive.folderId(url) != null) {
+            GoogleDrive.listFolder(url)?.takeIf { it.isNotEmpty() }
+                ?.let { return@withContext ResolveResult.Success(it) }
+        }
         directFile(url)?.let { return@withContext ResolveResult.Success(listOf(it)) }
 
         val request = YoutubeDLRequest(url).apply {
@@ -90,7 +94,7 @@ class Resolver(private val context: Context? = null) {
             }
         // no formats array (generic extractor, image entries): synthesize one direct variant
         if (variants.isEmpty() && info.url != null) {
-            val ext = info.ext ?: info.url.substringBefore('?').substringAfterLast('.', "").lowercase()
+            val ext = info.ext ?: extOf(info.url)
             variants = listOf(
                 Variant(DIRECT_FORMAT, ext.ifEmpty { "?" }, ext, info.filesize ?: info.filesize_approx,
                     hasVideo = false, hasAudio = false, height = null, needsMux = false)
@@ -112,9 +116,8 @@ class Resolver(private val context: Context? = null) {
     }
 
     private fun directFile(url: String): ResolvedItem? {
-        val path = url.substringBefore('?').substringBefore('#')
-        val name = path.substringAfterLast('/')
-        val ext = name.substringAfterLast('.', "").lowercase()
+        val name = url.substringBefore('?').substringBefore('#').substringAfterLast('/')
+        val ext = extOf(url)
         val kind = DIRECT_KINDS[ext] ?: return null
         return ResolvedItem(
             sourceUrl = url,

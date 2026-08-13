@@ -9,11 +9,9 @@
 - Design system: dark M3, burnt-orange primary; tokens at top of design/mockups.html.
 
 ## Next
-- **Google Drive folder broken (device-reproduced 2026-08-13).** Fix in 3 parts, mockups in
-  `design/mockups-drive.html`: (1) ext-from-last-path-segment in SniffStore + Resolver; (2) new
-  `resolve/GoogleDrive.kt` — folder URL -> GET page -> `_DRIVE_ivd` -> items with real name/mime/size,
-  each targeting `drive.google.com/file/d/<id>` with formatId `source/best`; (3) sniffer suppresses
-  `lh3.googleusercontent.com` and defers to the folder lister on Drive pages.
+- **Drive folder fix built, NOT yet device-verified end to end** (phone was locked). Re-run: share a
+  `drive.google.com/drive/folders/<id>` link to graball, confirm real filenames/sizes/kinds in the
+  picker, then download one and check the file lands. APK already installed.
 - Direction A picked (Links/Media tabs): still to build — detection sweep (drop naturalWidth gate, srcset/data-src/picture/CSS backgrounds, MutationObserver rescan, HEAD probe, wider ext maps) + Links tab chips.
 - Paused row shows no percentage ("Paused" only) — add "Paused at 62% · 47 MB/75 MB".
 - Torrent (aria2c, +5.4 MB) deferred; multi-file torrents need a publish path that handles a directory.
@@ -56,6 +54,7 @@
 - NavHost for main nav: rejected for now — 3 fixed tabs, plain index state; add when deep links needed.
 
 ## Log
+- 2026-08-13 | Drive folder fix: `extOf()` shared helper, `resolve/GoogleDrive.kt` folder lister, sniffer drops `lh<N>.googleusercontent.com` + `drive.google.com/thumbnail` | Resolver.resolve() owns the Drive branch, so share sheet and browser FAB are both fixed by one edit. 46/46 unit tests green, release APK builds. `IVD_RE` + unescaper checked against the live folder page: 3 items, exact names/mimes/sizes
 - 2026-08-13 | Drive folder diagnosed on device, 3 mockups in design/mockups-drive.html | picker showed 21 rows named after Drive thumbnail CDN ids with ext `com/u/0/d/...`; two independent causes (whole-URL ext parse + sniffer treating previews as files), plus yt-dlp's folder extractor dead upstream. Fix chosen: list the folder ourselves from `_DRIVE_ivd`, per-file yt-dlp
 - 2026-08-12 | v0.3.0: DirectDownloader (own HTTP downloader for direct files) + pause/resume + published filenames no longer carry the row id | 42 images meant 42 Python spawns via yt-dlp; resume was impossible because cancel() deleted the .part. Device-verified: 78 MB archive paused at 15%, resumed at 62%, sha256 matches upstream
 - 2026-08-12 | aria2c rejected for now | yt-dlp resumes on its own and detection/queue work needs no new binary; aria2c is only required for torrent, deferred as its own change
