@@ -79,6 +79,15 @@ class ResolverModelsTest {
             "1dQ4sx0-__Nvg65rxTSgQrl7VyW_FZ9QI",
             GoogleDrive.folderId("https://drive.google.com/drive/u/0/folders/1dQ4sx0-__Nvg65rxTSgQrl7VyW_FZ9QI"),
         )
+        // Drive redirects mobile user agents here, so this is what the in-app WebView actually holds
+        assertEquals(
+            "1dQ4sx0-__Nvg65rxTSgQrl7VyW_FZ9QI",
+            GoogleDrive.folderId("https://drive.google.com/drive/mobile/folders/1dQ4sx0-__Nvg65rxTSgQrl7VyW_FZ9QI"),
+        )
+        assertEquals(
+            "1dQ4sx0-__Nvg65rxTSgQrl7VyW_FZ9QI",
+            GoogleDrive.folderId("https://drive.google.com/drive/u/0/mobile/folders/1dQ4sx0-__Nvg65rxTSgQrl7VyW_FZ9QI"),
+        )
     }
 
     @Test
@@ -109,12 +118,70 @@ class ResolverModelsTest {
         assertEquals("A Walk [kQot7nZLeJo].webm", video.title)
         assertEquals(MediaKind.VIDEO, video.kind)
         assertEquals(338040226L, video.variants.single().sizeBytes)
-        assertEquals("https://drive.google.com/file/d/1eE-5jm2G8N5FL4HHeexrL0-Lg15bc0-D", video.sourceUrl)
-        assertEquals("source/best", video.variants.single().formatId)
+        assertEquals(
+            "https://drive.usercontent.google.com/download?id=1eE-5jm2G8N5FL4HHeexrL0-Lg15bc0-D&export=download&confirm=t",
+            video.sourceUrl,
+        )
+        assertEquals(DIRECT_FORMAT, video.variants.single().formatId)
 
         val doc = items[1]
         assertEquals(MediaKind.DOC, doc.kind)
         assertEquals(12345L, doc.variants.single().sizeBytes)
+    }
+
+    @Test
+    fun `parseIvd exports Google-native spreadsheets instead of handing them to yt-dlp`() {
+        val rawJson = """
+            [[
+              ["1Sheet00000000000000000000000000", null, "10 - Weight initializations", "application/vnd.google-apps.spreadsheet", null, null, null, null, null, null, null, null, null, 375772]
+            ]]
+        """.trimIndent()
+        val html = "<script>window['_DRIVE_ivd'] = '${escapeJs(rawJson)}';</script>"
+
+        val sheet = GoogleDrive.parseIvd(html)!!.single()
+
+        assertEquals("10 - Weight initializations.xlsx", sheet.title)
+        val variant = sheet.variants.single()
+        assertEquals("xlsx", variant.ext)
+        assertNull(variant.sizeBytes) // native size [13] is wrong for the exported file
+        assertEquals(
+            "https://docs.google.com/spreadsheets/d/1Sheet00000000000000000000000000/export?format=xlsx",
+            sheet.sourceUrl,
+        )
+        assertEquals(DIRECT_FORMAT, variant.formatId)
+    }
+
+    @Test
+    fun `parseIvd keeps a real ipynb file's own name and size`() {
+        val rawJson = """
+            [[
+              ["1Ipynb00000000000000000000000000", null, "03 - Perceptron.ipynb", "application/json", null, null, null, null, null, null, null, null, null, 341025]
+            ]]
+        """.trimIndent()
+        val html = "<script>window['_DRIVE_ivd'] = '${escapeJs(rawJson)}';</script>"
+
+        val nb = GoogleDrive.parseIvd(html)!!.single()
+
+        assertEquals("03 - Perceptron.ipynb", nb.title)
+        val variant = nb.variants.single()
+        assertEquals("ipynb", variant.ext)
+        assertEquals(341025L, variant.sizeBytes)
+        assertEquals(
+            "https://drive.usercontent.google.com/download?id=1Ipynb00000000000000000000000000&export=download&confirm=t",
+            nb.sourceUrl,
+        )
+    }
+
+    @Test
+    fun `parseIvd skips non-exportable Google-apps entries`() {
+        val rawJson = """
+            [[
+              ["1Form0000000000000000000000000000", null, "RSVP", "application/vnd.google-apps.form", null, null, null, null, null, null, null, null, null, null]
+            ]]
+        """.trimIndent()
+        val html = "<script>window['_DRIVE_ivd'] = '${escapeJs(rawJson)}';</script>"
+
+        assertNull(GoogleDrive.parseIvd(html)) // sole entry skipped -> empty list -> null
     }
 
     @Test

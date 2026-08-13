@@ -9,8 +9,10 @@
 - Design system: dark M3, burnt-orange primary; tokens at top of design/mockups.html.
 
 ## Next
-- Drive folder fix is device-verified end to end. Still open: nested Drive folders are skipped (no
-  recursion) and a Drive file whose yt-dlp extraction fails has no direct-download fallback.
+- Drive folders device-verified end to end on two folders (video, and a 49-item docs/notebooks one),
+  share sheet and browser Grab. Still open: nested folders skipped (no recursion); Drive's large-file
+  virus-scan interstitial is unverified — `DirectDownloader` has no HTML sniff, so a >~100MB Drive
+  file could land as the warning page; forms/sites/scripts are dropped from the listing.
 - Direction A picked (Links/Media tabs): still to build — detection sweep (drop naturalWidth gate, srcset/data-src/picture/CSS backgrounds, MutationObserver rescan, HEAD probe, wider ext maps) + Links tab chips.
 - Paused row shows no percentage ("Paused" only) — add "Paused at 62% · 47 MB/75 MB".
 - Torrent (aria2c, +5.4 MB) deferred; multi-file torrents need a publish path that handles a directory.
@@ -20,6 +22,18 @@
 - Device-verify address bar rework + adblock + https-only (no gradle run yet, review-only pass).
 
 ## Gotchas
+- yt-dlp is **video-only for Drive**: `GoogleDriveIE` 400s on notebooks, Sheets, PDFs
+  (`Unable to download JSON metadata: HTTP Error 400`). Drive items download through
+  `DirectDownloader` instead — `drive.usercontent.google.com/download?id=<id>&export=download&confirm=t`
+  for real files, `docs.google.com/<type>/d/<id>/export?format=<ext>` for Google-native docs.
+- Drive redirects **mobile** user agents to `/drive/mobile/folders/<id>`, so the in-app WebView never
+  holds the plain `/drive/folders/` form. `GoogleDrive.FOLDER_URL` must match both or the browser's
+  Grab button silently falls back to sniffing page assets.
+- `drive-thirdparty.googleusercontent.com` serves Drive's per-mime **file-type icons**, and the URL
+  ends in the mime subtype — an unsuppressed icon becomes a picker row literally named `json` or
+  `vnd.google-apps.spreadsheet`.
+- A Google-native doc's listing size is NOT its export size (a Sheet listed 375772, exported 1010514).
+  Show no size for exports rather than a wrong one.
 - yt-dlp's `-o "...%(title)s.%(ext)s"` doubles the extension whenever the extractor's title already
   ends in one (every Google Drive filename does): `clip.webm` -> `clip.webm.webm`. `publishName()`
   collapses one repeated tail; a real chain like `title.f137.mp4` must survive.
@@ -56,6 +70,7 @@
 - NavHost for main nav: rejected for now — 3 fixed tabs, plain index state; add when deep links needed.
 
 ## Log
+- 2026-08-13 | Drive items download via DirectDownloader (usercontent download / docs export) not yt-dlp; folder regex accepts `/drive/mobile/folders/`; sniffer drops `drive-thirdparty` icon host; picker wraps long filenames to 3 lines | user's 49-item folder resolved but every download would have 400'd, and browser Grab showed 6 rows named after mime subtypes. Verified: .ipynb byte-exact 341025, Sheet exported to a real 1.0 MB xlsx, video still gets 206 + exact Content-Length
 - 2026-08-13 | Drive folder fix: `extOf()` shared helper, `resolve/GoogleDrive.kt` folder lister, sniffer drops `lh<N>.googleusercontent.com` + `drive.google.com/thumbnail` | Resolver.resolve() owns the Drive branch, so share sheet and browser FAB are both fixed by one edit. 46/46 unit tests green, release APK builds. `IVD_RE` + unescaper checked against the live folder page: 3 items, exact names/mimes/sizes
 - 2026-08-13 | Drive folder diagnosed on device, 3 mockups in design/mockups-drive.html | picker showed 21 rows named after Drive thumbnail CDN ids with ext `com/u/0/d/...`; two independent causes (whole-URL ext parse + sniffer treating previews as files), plus yt-dlp's folder extractor dead upstream. Fix chosen: list the folder ourselves from `_DRIVE_ivd`, per-file yt-dlp
 - 2026-08-12 | v0.3.0: DirectDownloader (own HTTP downloader for direct files) + pause/resume + published filenames no longer carry the row id | 42 images meant 42 Python spawns via yt-dlp; resume was impossible because cancel() deleted the .part. Device-verified: 78 MB archive paused at 15%, resumed at 62%, sha256 matches upstream

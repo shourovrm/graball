@@ -8,6 +8,19 @@ import org.junit.Test
 
 class SniffStoreTest {
 
+    // these icons are named after the mime subtype, so an unsuppressed one becomes a row
+    // literally titled "json" or "vnd.google-apps.spreadsheet"
+    @Test
+    fun `drive file-type icons are dropped`() {
+        val store = SniffStore()
+        listOf(
+            "https://drive-thirdparty.googleusercontent.com/32/type/application/json",
+            "https://drive-thirdparty.googleusercontent.com/32/type/application/vnd.google-apps.spreadsheet",
+            "https://drive-thirdparty.googleusercontent.com/32/type/application/vnd.google.colaboratory",
+        ).forEach { store.add(it, Source.NETWORK, mimeHint = "image/png") }
+        assertTrue(store.hits.isEmpty())
+    }
+
     @Test
     fun `drive thumbnail preview is dropped even with an image mime hint`() {
         val store = SniffStore()

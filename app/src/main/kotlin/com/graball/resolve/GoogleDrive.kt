@@ -15,7 +15,11 @@ import kotlinx.serialization.json.jsonArray
  *  the whole listing in a JS global, so we scrape that instead of the API. */
 object GoogleDrive {
     private const val MAX_BYTES = 4 * 1024 * 1024
-    private val FOLDER_URL = Regex("""https?://(?:drive|docs)\.google\.com/drive/(?:u/\d+/)?folders/([\w-]{20,})""")
+    // Drive redirects mobile user agents to /drive/mobile/folders/<id>, so the in-app WebView's
+    // URL never carries the plain /drive/folders/ form -- both must match or the browser's Grab
+    // button silently falls back to sniffing the page's icon assets.
+    private val FOLDER_URL =
+        Regex("""https?://(?:drive|docs)\.google\.com/drive/(?:u/\d+/)?(?:mobile/)?folders/([\w-]{20,})""")
     private val IVD_RE = Regex("""window\['_DRIVE_ivd'\]\s*=\s*'((?:\\.|[^'\\])*)'""")
 
     /** Drive folder id, or null when [url] is not a Drive folder link. */
@@ -101,22 +105,60 @@ object GoogleDrive {
     private fun JsonArray.str(i: Int): String? =
         (getOrNull(i) as? JsonPrimitive)?.takeIf { it != JsonNull }?.content
 
+    // Google-native docs (Sheets/Docs/Slides/Drawings) have no file bytes -- yt-dlp 400s trying to
+    // fetch them as a video, and there's nothing to download at drive.google.com/file/d/<id> either.
+    // They must go through the docs.google.com export endpoint instead. mime -> (export path segment, ext).
+    private const val COLAB_MIME = "application/vnd.google.colaboratory"
+
+    private val GOOGLE_EXPORT = mapOf(
+        "application/vnd.google-apps.spreadsheet" to ("spreadsheets" to "xlsx"),
+        "application/vnd.google-apps.document" to ("document" to "docx"),
+        "application/vnd.google-apps.presentation" to ("presentation" to "pptx"),
+        "application/vnd.google-apps.drawing" to ("drawings" to "png"),
+    )
+
     private fun toResolvedItem(item: JsonArray, index: Int): ResolvedItem? {
         val fileId = item.str(0) ?: return null
         val name = item.str(2) ?: return null
         val mime = item.str(3) ?: ""
         if (mime == "application/vnd.google-apps.folder") return null // nested folders: no recursion
-        // size comes through as either a JSON number or a numeric string -- .content is the raw text
-        // either way, so a single toLongOrNull covers both without a type check
-        val size = item.str(13)?.toLongOrNull()
+
+        val export = GOOGLE_EXPORT[mime]
+        // forms/sites/maps/scripts/shortcuts: no file bytes and no export endpoint -- not downloadable
+        if (export == null && mime.startsWith("application/vnd.google-apps.")) return null
+
+        val sourceUrl: String
+        val ext: String
+        val size: Long?
+        val title: String
+        if (export != null) {
+            val (docType, exportExt) = export
+            sourceUrl = "https://docs.google.com/$docType/d/$fileId/export?format=$exportExt"
+            ext = exportExt
+            // the listing's size [13] is the Google-native size, not the export size -- known wrong
+            // (verified: a Sheet listed 375772 exported to 1010514 bytes), so don't show it at all
+            size = null
+            // native docs carry no extension in their name; append the export one, once
+            title = if (name.endsWith(".$exportExt", ignoreCase = true)) name else "$name.$exportExt"
+        } else {
+            // real file bytes -- Drive's own uploads-served-as-uploads endpoint. confirm=t skips the
+            // small "can't scan for viruses" click-through; NOT verified against the large-file
+            // interstitial (server-side virus scan on files >~100MB), which serves an HTML warning
+            // page instead of bytes. DirectDownloader has no HTML sniff, so a big file here could
+            // land on disk as an interstitial page rather than the real download.
+            sourceUrl = "https://drive.usercontent.google.com/download?id=$fileId&export=download&confirm=t"
+            // Colab notebooks are real files but Drive often stores the name without the suffix,
+            // so they'd otherwise be saved extensionless
+            ext = extOf(name).ifEmpty { if (mime == COLAB_MIME) "ipynb" else "" }
+            // size comes through as either a JSON number or a numeric string -- .content is the raw
+            // text either way, so a single toLongOrNull covers both without a type check
+            size = item.str(13)?.toLongOrNull()
+            title = if (ext.isNotEmpty() && !name.endsWith(".$ext", ignoreCase = true)) "$name.$ext" else name
+        }
         val kind = kindOf(mime)
-        val ext = extOf(name)
         val variant = Variant(
-            // "source/best": a real yt-dlp format selector (Drive's own `source` format, falling back
-            // to `best`) -- NOT DIRECT_FORMAT, so DownloadService passes it to `-f` and yt-dlp keeps
-            // handling the virus-scan confirmation page, cookies and resume.
-            formatId = "source/best",
-            label = ext.ifEmpty { mime },
+            formatId = DIRECT_FORMAT,
+            label = ext,
             ext = ext,
             sizeBytes = size,
             hasVideo = kind == MediaKind.VIDEO,
@@ -125,8 +167,8 @@ object GoogleDrive {
             needsMux = false,
         )
         return ResolvedItem(
-            sourceUrl = "https://drive.google.com/file/d/$fileId",
-            title = name,
+            sourceUrl = sourceUrl,
+            title = title,
             thumbnail = null,
             durationSec = null,
             kind = kind,
@@ -138,9 +180,13 @@ object GoogleDrive {
     private fun kindOf(mime: String): MediaKind = when {
         mime.startsWith("video/") -> MediaKind.VIDEO
         mime.startsWith("audio/") -> MediaKind.AUDIO
-        mime.startsWith("image/") -> MediaKind.IMAGE
+        mime.startsWith("image/") || mime == "application/vnd.google-apps.drawing" -> MediaKind.IMAGE
         mime == "application/pdf" || mime == "application/msword" ||
-            mime.contains("officedocument") || mime.startsWith("text/") -> MediaKind.DOC
+            mime.contains("officedocument") || mime.startsWith("text/") ||
+            mime == "application/vnd.google-apps.spreadsheet" ||
+            mime == "application/vnd.google-apps.document" ||
+            mime == "application/vnd.google-apps.presentation" ||
+            mime == "application/vnd.google.colaboratory" || mime == "application/json" -> MediaKind.DOC
         listOf("zip", "x-7z", "rar", "tar", "gzip").any { it in mime } -> MediaKind.ARCHIVE
         else -> MediaKind.OTHER
     }

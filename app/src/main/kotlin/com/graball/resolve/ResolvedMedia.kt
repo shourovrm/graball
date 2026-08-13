@@ -57,7 +57,7 @@ fun humanSize(bytes: Long?): String? {
 fun buildVariantLabel(height: Int?, ext: String, sizeBytes: Long?): String {
     val parts = mutableListOf<String>()
     if (height != null) parts += "${height}p"
-    parts += ext
+    if (ext.isNotBlank()) parts += ext // an extensionless file must not render a leading " · "
     humanSize(sizeBytes)?.let { parts += it }
     return parts.joinToString(" · ")
 }

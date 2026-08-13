@@ -172,11 +172,11 @@ private fun ChipRow(state: PickerState) {
 @Composable
 private fun ItemRow(state: PickerState, item: ResolvedItem) {
     val chosen = state.chosenVariant[item.id] ?: item.bestVariant()
-    val subtitle = buildString {
-        chosen?.let { append(buildVariantLabel(it.height, it.ext, it.sizeBytes)) }
-        append(" · ")
-        append(hostOf(item.sourceUrl))
-    }
+    // join only the parts we actually have, else an unknown variant leaves a dangling " · "
+    val subtitle = listOfNotNull(
+        chosen?.let { buildVariantLabel(it.height, it.ext, it.sizeBytes) }?.takeIf { it.isNotBlank() },
+        hostOf(item.sourceUrl),
+    ).joinToString(" · ")
     Column {
         Row(
             Modifier
@@ -195,7 +195,9 @@ private fun ItemRow(state: PickerState, item: ResolvedItem) {
                 modifier = Modifier.padding(start = 4.dp, end = 12.dp),
             )
             Column(Modifier.weight(1f)) {
-                Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
+                // filenames are the whole point of the picker: wrap rather than ellipsize at one
+                // line, but cap it so one pathological name can't eat the list
+                Text(item.title, maxLines = 3, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
                 Text(
                     subtitle,
                     maxLines = 1,

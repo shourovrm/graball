@@ -30,15 +30,20 @@ private fun mimeKind(mime: String?): MediaKind? = when {
     else -> null
 }
 
-// lh3/lh4/.../googleusercontent.com and drive.google.com/thumbnail only ever serve
-// fixed-size preview crops, never the real file — the real Drive files come from
+// Drive chrome, never a file: lh3/lh4/... serve fixed-size preview crops, /thumbnail does the
+// same, and drive-thirdparty serves the per-mime file-type ICONS — whose URL ends in the mime
+// subtype, so an unsuppressed icon shows up as a row literally named "json" or
+// "vnd.google-apps.spreadsheet". Real Drive files come from
 // com.graball.resolve.GoogleDrive.listFolder(), which Resolver.resolve() calls instead.
 private val LH_HOST = Regex("""^lh\d+\.googleusercontent\.com$""")
+private const val ICON_HOST = "drive-thirdparty.googleusercontent.com"
 
 private fun isDrivePreview(url: String): Boolean = runCatching {
     val uri = URI(url)
     val host = uri.host?.lowercase() ?: return@runCatching false
-    LH_HOST.matches(host) || (host == "drive.google.com" && uri.path?.startsWith("/thumbnail") == true)
+    LH_HOST.matches(host) ||
+        host == ICON_HOST ||
+        (host == "drive.google.com" && uri.path?.startsWith("/thumbnail") == true)
 }.getOrDefault(false)
 
 /**
