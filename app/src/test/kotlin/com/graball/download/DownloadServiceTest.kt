@@ -23,4 +23,20 @@ class DownloadServiceTest {
     @Test fun `different id does not match`() {
         assertEquals("title-7.pdf", publishName("title-7.pdf", 42))
     }
+
+    // Drive titles already end in the extension, so yt-dlp's ".%(ext)s" doubles it
+    @Test fun `collapses a doubled extension left by a title that already had one`() {
+        assertEquals(
+            "Bryce Canyon National Park [7uKucJejmTc].webm",
+            publishName("Bryce Canyon National Park [7uKucJejmTc].webm-42.webm", 42),
+        )
+    }
+
+    @Test fun `collapses a doubled extension regardless of case`() {
+        assertEquals("clip.MP4", publishName("clip.MP4-42.mp4", 42))
+    }
+
+    @Test fun `leaves a non-repeating extension chain alone`() {
+        assertEquals("archive.tar.gz", publishName("archive.tar-42.gz", 42))
+    }
 }

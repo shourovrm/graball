@@ -9,9 +9,8 @@
 - Design system: dark M3, burnt-orange primary; tokens at top of design/mockups.html.
 
 ## Next
-- **Drive folder fix built, NOT yet device-verified end to end** (phone was locked). Re-run: share a
-  `drive.google.com/drive/folders/<id>` link to graball, confirm real filenames/sizes/kinds in the
-  picker, then download one and check the file lands. APK already installed.
+- Drive folder fix is device-verified end to end. Still open: nested Drive folders are skipped (no
+  recursion) and a Drive file whose yt-dlp extraction fails has no direct-download fallback.
 - Direction A picked (Links/Media tabs): still to build — detection sweep (drop naturalWidth gate, srcset/data-src/picture/CSS backgrounds, MutationObserver rescan, HEAD probe, wider ext maps) + Links tab chips.
 - Paused row shows no percentage ("Paused" only) — add "Paused at 62% · 47 MB/75 MB".
 - Torrent (aria2c, +5.4 MB) deferred; multi-file torrents need a publish path that handles a directory.
@@ -21,6 +20,9 @@
 - Device-verify address bar rework + adblock + https-only (no gradle run yet, review-only pass).
 
 ## Gotchas
+- yt-dlp's `-o "...%(title)s.%(ext)s"` doubles the extension whenever the extractor's title already
+  ends in one (every Google Drive filename does): `clip.webm` -> `clip.webm.webm`. `publishName()`
+  collapses one repeated tail; a real chain like `title.f137.mp4` must survive.
 - Extension parsing must run on the **last path segment**, not the whole URL. `SniffStore.kt:49` and
   `Resolver.kt:93` both do `url.substringAfterLast('.')`, so an extensionless URL returns the tail of
   the *host* — `https://lh3.googleusercontent.com/u/0/d/<id>` yields ext `com/u/0/d/<id>`.

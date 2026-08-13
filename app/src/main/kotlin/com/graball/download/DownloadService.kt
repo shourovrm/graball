@@ -44,8 +44,14 @@ import kotlinx.coroutines.sync.Semaphore
 // it's shown to the user. Anchored like isTempOf() so an id-shaped substring earlier in the
 // title can't false-match. Never touch the on-disk file: cleanup/resume regexes need it there.
 // No-op for direct downloads, whose files are already clean.
+// Extractors whose title already carries the extension (Google Drive filenames, generic http)
+// meet yt-dlp's ".%(ext)s" and come out as "clip.webm.webm". Collapse one doubled tail only --
+// a real chain like "title.f137.mp4" has no repeated pair and must survive untouched.
+private val DOUBLE_EXT = Regex("""\.([A-Za-z0-9]{1,5})\.\1$""", RegexOption.IGNORE_CASE)
+
 internal fun publishName(name: String, id: Long): String =
     Regex("-$id((?:\\.[A-Za-z0-9]+)+)$").replace(name) { it.groupValues[1] }
+        .let { stripped -> DOUBLE_EXT.replace(stripped) { m -> ".${m.groupValues[1]}" } }
 
 /** dataSync foreground service: the only writer of DownloadEntity. UI just observes the DB. */
 class DownloadService : Service() {
