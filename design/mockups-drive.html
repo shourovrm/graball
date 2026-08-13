@@ -125,7 +125,7 @@ figcaption b.good{color:var(--good)}
 .sheetfoot .sum span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
 .sheetfoot .btn.filled{height:48px;border-radius:24px;font-size:15px;flex:none}
 .chiprow{display:flex;gap:8px;padding:8px 16px;overflow:hidden;flex:none}
-.list{flex:1;overflow:hidden}
+.list{flex:1;overflow:hidden;min-width:0}
 
 /* source strip: says where this list came from, so an empty/odd list is self-explaining */
 .srcstrip{
@@ -148,10 +148,11 @@ figcaption b.good{color:var(--good)}
 .ext.img{background:oklch(0.29 0.05 285);color:oklch(0.87 0.06 290)}
 .ext.unk{background:var(--bad-container);color:oklch(0.88 0.08 25)}
 
-.row{display:flex;align-items:center;gap:14px;padding:9px 16px;min-height:58px}
+.row{display:flex;align-items:center;gap:14px;padding:9px 16px;min-height:58px;width:100%;min-width:0}
 .row.sel{background:oklch(0.34 0.075 40 / 0.28)}
 .row .body{flex:1;min-width:0}
-.row .name{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* span, so it needs display:block — text-overflow never applies to an inline box */
+.row .name{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .row .name.mono{font-family:ui-monospace,'Roboto Mono',monospace;font-size:13px;color:oklch(0.80 0.02 45)}
 .row .meta{color:var(--muted);font-size:12.5px;margin-top:3px;display:flex;align-items:center;gap:6px}
 .row .meta.mono{font-family:ui-monospace,'Roboto Mono',monospace;font-size:11.5px}
