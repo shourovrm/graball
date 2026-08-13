@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>graball · Google Drive folder — bug vs. fix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..500,0..1,0&display=block">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">
+<style>
+/* ---------- tokens: identical to design/mockups.html, do not fork ---------- */
+:root{
+  --bg:        oklch(0.115 0 0);
+  --surface:   oklch(0.165 0.004 40);
+  --surface-2: oklch(0.21 0.005 40);
+  --surface-3: oklch(0.26 0.006 40);
+  --outline:   oklch(0.33 0.006 40);
+  --ink:       oklch(0.93 0.004 45);
+  --muted:     oklch(0.68 0.007 45);
+  --primary:   oklch(0.76 0.13 40);
+  --on-primary:oklch(0.23 0.06 40);
+  --primary-container: oklch(0.34 0.075 40);
+  --on-primary-container: oklch(0.90 0.07 45);
+  --accent:    oklch(0.80 0.09 200);
+  --good:      oklch(0.78 0.13 150);
+  --bad:       oklch(0.74 0.15 25);
+  --bad-container: oklch(0.30 0.09 25);
+  --r-sheet: 28px; --r-card: 12px; --r-chip: 8px;
+  --z-sticky: 10; --z-scrim: 20; --z-sheet: 30; --z-bar: 40;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+  background: oklch(0.08 0 0);
+  color: var(--ink);
+  font-family: Roboto, system-ui, sans-serif;
+  padding: 48px 32px 64px;
+}
+.ms{
+  font-family:'Material Symbols Rounded';
+  font-weight:normal;font-style:normal;line-height:1;
+  letter-spacing:normal;text-transform:none;display:inline-block;
+  white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;
+  font-variation-settings:'opsz' 24,'wght' 400;
+  font-size:22px; user-select:none;
+}
+.ms.fill{font-variation-settings:'FILL' 1,'opsz' 24}
+.ms.sm{font-size:18px}
+.ms.xs{font-size:15px}
+
+/* ---------- gallery shell ---------- */
+header.gallery{max-width:78ch;margin:0 auto 40px}
+header.gallery h1{font-size:1.5rem;font-weight:500;letter-spacing:-0.01em}
+header.gallery p{color:var(--muted);margin-top:10px;line-height:1.55;text-wrap:pretty}
+header.gallery p+p{margin-top:8px}
+header.gallery code{background:var(--surface-2);padding:1px 5px;border-radius:4px;font-size:0.9em}
+.frames{display:flex;flex-wrap:wrap;gap:44px;justify-content:center;align-items:flex-start}
+figure{display:flex;flex-direction:column;gap:12px;width:412px}
+figcaption{color:var(--muted);font-size:0.85rem;line-height:1.5}
+figcaption b{color:var(--ink);font-weight:500;display:block;margin-bottom:4px;font-size:0.95rem}
+figcaption .tradeoff{display:block;margin-top:6px}
+figcaption .tradeoff em{color:var(--ink);font-style:normal;font-weight:500}
+figcaption b.bad{color:var(--bad)}
+figcaption b.good{color:var(--good)}
+
+/* ---------- phone frame ---------- */
+.phone{
+  width:412px;height:892px;
+  background:var(--bg);
+  border-radius:30px;
+  border:1px solid oklch(0.28 0 0);
+  overflow:hidden;position:relative;
+  display:flex;flex-direction:column;
+  font-size:15px;
+}
+.statusbar{
+  height:36px;flex:none;display:flex;align-items:center;
+  justify-content:space-between;padding:0 18px;font-size:13px;font-weight:500;
+}
+.statusbar .right{display:flex;gap:5px;align-items:center}
+.statusbar .ms{font-size:15px}
+.gesture{height:22px;flex:none;display:flex;align-items:center;justify-content:center}
+.gesture::before{content:"";width:120px;height:4px;border-radius:2px;background:oklch(0.45 0 0)}
+.screen{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
+
+/* ---------- shared components (mirrors mockups.html) ---------- */
+.iconbtn{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.iconbtn.on{background:var(--primary-container);color:var(--on-primary-container)}
+.btn{
+  border:none;font:inherit;font-weight:500;font-size:14px;
+  height:40px;padding:0 24px;border-radius:20px;
+  display:inline-flex;align-items:center;gap:8px;justify-content:center;cursor:pointer;
+}
+.btn.filled{background:var(--primary);color:var(--on-primary)}
+.btn.text{background:none;color:var(--primary);padding:0 12px}
+.chip{
+  height:32px;padding:0 14px;border-radius:var(--r-chip);
+  border:1px solid var(--outline);color:var(--ink);
+  display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:500;flex:none;
+}
+.chip .count{color:var(--muted);font-weight:400}
+.chip.sel{background:var(--primary-container);border-color:transparent;color:var(--on-primary-container)}
+.chip.sel .count{color:var(--on-primary-container);opacity:0.8}
+.chip .ms{font-size:17px}
+.checkbox{width:20px;height:20px;border-radius:4px;border:2px solid var(--muted);flex:none}
+.checkbox.on{background:var(--primary);border-color:var(--primary);position:relative}
+.checkbox.on::after{
+  content:"check";font-family:'Material Symbols Rounded';font-size:16px;font-weight:700;
+  color:var(--on-primary);position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+}
+
+/* ---------- the picker sheet ---------- */
+.sheet{
+  position:absolute;left:0;right:0;top:0;bottom:0;z-index:var(--z-sheet);
+  background:var(--surface);
+  display:flex;flex-direction:column;overflow:hidden;
+}
+.sheethead{display:flex;align-items:center;gap:2px;padding:4px 6px;flex:none}
+.sheethead .t{font-size:15px;font-weight:500;padding-left:6px}
+.sheethead .spacer{flex:1}
+.sheetfoot{
+  flex:none;display:flex;align-items:center;gap:12px;padding:10px 16px 14px;
+  background:var(--surface-2);z-index:var(--z-bar);
+}
+.sheetfoot .sum{flex:1;min-width:0;font-size:13.5px}
+.sheetfoot .sum span{display:block;color:var(--muted);font-size:12px;margin-top:2px}
+.sheetfoot .btn.filled{height:48px;border-radius:24px;font-size:15px;flex:none}
+.chiprow{display:flex;gap:8px;padding:8px 16px;overflow:hidden;flex:none}
+.list{flex:1;overflow:hidden}
+
+/* source strip: says where this list came from, so an empty/odd list is self-explaining */
+.srcstrip{
+  flex:none;display:flex;align-items:center;gap:10px;
+  margin:0 12px 8px;padding:9px 12px;border-radius:var(--r-card);
+  background:var(--surface-2);font-size:12.5px;color:var(--muted);
+}
+.srcstrip .ms{font-size:18px;color:var(--accent);flex:none}
+.srcstrip b{color:var(--ink);font-weight:500}
+
+/* type badge */
+.ext{
+  width:40px;height:40px;border-radius:10px;flex:none;background:var(--surface-2);color:var(--muted);
+  display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;letter-spacing:0.02em;
+}
+.ext.doc{background:oklch(0.30 0.05 25);color:oklch(0.88 0.06 30)}
+.ext.arc{background:oklch(0.30 0.04 95);color:oklch(0.88 0.06 95)}
+.ext.vid{background:var(--primary-container);color:var(--on-primary-container)}
+.ext.aud{background:oklch(0.29 0.05 200);color:oklch(0.87 0.06 200)}
+.ext.img{background:oklch(0.29 0.05 285);color:oklch(0.87 0.06 290)}
+.ext.unk{background:var(--bad-container);color:oklch(0.88 0.08 25)}
+
+.row{display:flex;align-items:center;gap:14px;padding:9px 16px;min-height:58px}
+.row.sel{background:oklch(0.34 0.075 40 / 0.28)}
+.row .body{flex:1;min-width:0}
+.row .name{font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .name.mono{font-family:ui-monospace,'Roboto Mono',monospace;font-size:13px;color:oklch(0.80 0.02 45)}
+.row .meta{color:var(--muted);font-size:12.5px;margin-top:3px;display:flex;align-items:center;gap:6px}
+.row .meta.mono{font-family:ui-monospace,'Roboto Mono',monospace;font-size:11.5px}
+.row .meta .dot{opacity:0.5}
+.row .meta .warn{color:var(--bad)}
+.divider{height:1px;background:var(--outline);opacity:0.5;margin-left:70px}
+
+/* error sheet (frame 1, share-sheet path) */
+.errsheet{
+  position:absolute;left:0;right:0;bottom:0;z-index:var(--z-bar);
+  background:oklch(0.96 0.01 40);color:oklch(0.20 0.02 40);
+  border-radius:var(--r-sheet) var(--r-sheet) 0 0;padding:22px 20px 26px;
+}
+.errsheet .handle{width:32px;height:4px;border-radius:2px;background:oklch(0.55 0.01 40);margin:0 auto 20px}
+.errsheet h3{font-size:19px;font-weight:400;margin-bottom:18px}
+.errsheet .acts{display:flex;align-items:center;gap:10px}
+.errsheet .btn.filled{background:var(--primary);color:oklch(1 0 0)}
+.errsheet .btn.text{color:oklch(0.52 0.14 35)}
+.errsheet .log{
+  margin-top:16px;font-family:ui-monospace,'Roboto Mono',monospace;font-size:11.5px;
+  color:oklch(0.38 0.02 40);line-height:1.5;word-break:break-word;
+}
+.scrim{position:absolute;inset:0;background:oklch(0 0 0 / 0.45);z-index:var(--z-scrim)}
+
+/* annotation callouts */
+.note{
+  position:absolute;z-index:calc(var(--z-bar) + 5);
+  background:var(--bad-container);color:oklch(0.94 0.05 25);
+  font-size:11.5px;font-weight:500;padding:5px 9px;border-radius:6px;
+  box-shadow:0 4px 14px oklch(0 0 0 / 0.5);
+}
+.note.ok{background:oklch(0.30 0.08 150);color:oklch(0.94 0.06 150)}
+</style>
+</head>
+<body>
+
+<header class="gallery">
+  <h1>graball · Google Drive folder — what breaks, what it should look like</h1>
+  <p>Reproduced on the physical device against <code>drive.google.com/drive/folders/…</code>.
+     Two independent defects; one shared root cause in the extension parser.</p>
+  <p><b>1</b> — share-sheet path: yt-dlp's <code>GoogleDrive:Folder</code> extractor dies
+     (<code>expected string or bytes-like object, got 'bool'</code>), so the user falls back to the in-app
+     browser. <b>2</b> — browser sniffer path: it grabs Drive's <em>thumbnail CDN</em> URLs
+     (<code>lh3.googleusercontent.com/u/0/d/…</code>), which have no filename and no extension, so the
+     name becomes the opaque CDN id and the "extension" becomes whatever follows the last dot in the
+     whole URL — the host tail. <b>3</b> — the fix.</p>
+</header>
+
+<div class="frames">
+
+<!-- ============================================================ 1 · BROKEN (what ships today) -->
+<figure>
+  <div class="phone">
+    <div class="statusbar">
+      <span>9:38</span>
+      <span class="right"><span class="ms xs">wifi</span><span class="ms xs">signal_cellular_alt</span><span class="ms xs fill">battery_full</span></span>
+    </div>
+    <div class="screen">
+      <div class="sheet">
+        <div class="sheethead">
+          <span class="iconbtn"><span class="ms">close</span></span>
+          <span class="t">21 selected</span>
+          <span class="spacer"></span>
+          <span class="iconbtn"><span class="ms sm">search</span></span>
+          <span class="iconbtn"><span class="ms sm">select_all</span></span>
+          <span class="iconbtn"><span class="ms sm">flip_to_back</span></span>
+          <span class="iconbtn"><span class="ms sm">sort</span></span>
+        </div>
+        <div class="chiprow">
+          <span class="chip sel"><span class="ms">check</span>All <span class="count">21</span></span>
+          <span class="chip">Images <span class="count">21</span></span>
+        </div>
+        <div class="list">
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext unk">?</span>
+            <span class="body">
+              <span class="name mono">15BX1C4_NlgZoSHEXQe4KfVHxh7_XpabMeSx3C6uoEdA=w522-h391-p-k-nu-iv11</span>
+              <span class="meta mono warn">com/u/0/d/15bx1c4_nlgzoshexqe4kfvhxh7_xpabmesx… · lh3.googleusercontent.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext unk">?</span>
+            <span class="body">
+              <span class="name mono">19KIk2dVpwrA57ImTjr24WM5rgRYOzn5elC7obu_l-jU=w522-h391-p-k-nu-iv66</span>
+              <span class="meta mono warn">com/u/0/d/19kik2dvpwra57imtjr24wm5rgryozn5elc… · lh3.googleusercontent.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext unk">?</span>
+            <span class="body">
+              <span class="name mono">1BDHOnSymWhXkzFoPTOJ9GA2AZ6OZskNK=w522-h391-p-k-nu-iv76</span>
+              <span class="meta mono warn">com/u/0/d/1bdhonsymwhxkzfoptoj9ga2az6ozsknk=… · lh3.googleusercontent.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext unk">?</span>
+            <span class="body">
+              <span class="name mono">1dFmDqhsN91SVSN5cN17DisQw0QUqoIR85RMi5nbL2fw=w522-h391-p-k-nu-iv36</span>
+              <span class="meta mono warn">com/u/0/d/1dfmdqhsn91svsn5cn17disqw0quqoir85… · lh3.googleusercontent.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext unk">?</span>
+            <span class="body">
+              <span class="name mono">1EfEEjErUCNDkyqBAjBg2F_pp3_Ke2Lp6VcSANSgMmxY=w522-h391-p-k-nu-iv51</span>
+              <span class="meta mono warn">com/u/0/d/1efeejerucndkyqbajbg2f_pp3_ke2lp6vc… · lh3.googleusercontent.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext unk">?</span>
+            <span class="body">
+              <span class="name mono">1h2fot6AqHDvYYj_HeJuOkLqKZys9mfn8=w522-h391-p-k-nu-iv100</span>
+              <span class="meta mono warn">com/u/0/d/1h2fot6aqhdvyyj_hejuoklqkzys9mfn8=… · lh3.googleusercontent.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext unk">?</span>
+            <span class="body">
+              <span class="name mono">1nrpiLWPeiYd-agABU-6zcBxqkV3JzN6WR57AaDOGGhQ=w522-h391-p-k-nu-iv27</span>
+              <span class="meta mono warn">com/u/0/d/1nrpilwpeiyd-agabu-6zcbxqkv3jzn6wr5… · lh3.googleusercontent.com</span>
+            </span>
+          </div>
+        </div>
+        <div class="sheetfoot">
+          <span class="sum">21 selected<span>size unknown</span></span>
+          <span class="btn text">Cancel</span>
+          <span class="btn filled"><span class="ms sm">download</span>Download 21</span>
+        </div>
+      </div>
+
+      <div class="scrim"></div>
+      <div class="errsheet">
+        <div class="handle"></div>
+        <h3>Something went wrong.</h3>
+        <div class="acts">
+          <span class="btn text">Copy log</span>
+          <span class="btn filled">Close</span>
+        </div>
+        <div class="log">YoutubeDLException: ERROR: expected string or bytes-like object, got 'bool'</div>
+      </div>
+
+      <span class="note" style="top:44px;right:14px">names = Drive thumbnail ids</span>
+      <span class="note" style="top:44px;left:14px">"ext" = host tail</span>
+    </div>
+    <div class="gesture"></div>
+  </div>
+  <figcaption>
+    <b class="bad">1 · Today — device capture, redrawn</b>
+    Every row is a <em>522×391 preview JPEG</em>, not a file in the folder. Title is the CDN object id;
+    the extension parser ran <code>substringAfterLast('.')</code> over the whole URL, so it returned
+    <code>com/u/0/d/…</code>. All 21 land in <em>Images</em> only because the request's
+    <code>Accept: image/*</code> header was the last classifier standing.
+    <span class="tradeoff">Behind the scrim: the share-sheet path for the same link, dead on the
+    upstream <em>GoogleDrive:Folder</em> extractor.</span>
+  </figcaption>
+</figure>
+
+<!-- ============================================================ 2 · FIXED (folder listing) -->
+<figure>
+  <div class="phone">
+    <div class="statusbar">
+      <span>9:38</span>
+      <span class="right"><span class="ms xs">wifi</span><span class="ms xs">signal_cellular_alt</span><span class="ms xs fill">battery_full</span></span>
+    </div>
+    <div class="screen">
+      <div class="sheet">
+        <div class="sheethead">
+          <span class="iconbtn"><span class="ms">close</span></span>
+          <span class="t">6 selected</span>
+          <span class="spacer"></span>
+          <span class="iconbtn"><span class="ms sm">search</span></span>
+          <span class="iconbtn"><span class="ms sm">select_all</span></span>
+          <span class="iconbtn"><span class="ms sm">flip_to_back</span></span>
+          <span class="iconbtn"><span class="ms sm">sort</span></span>
+        </div>
+        <div class="srcstrip">
+          <span class="ms">folder_shared</span>
+          <span>Google&nbsp;Drive folder <b>Forrest</b> · 6 files · listed from the folder page</span>
+        </div>
+        <div class="chiprow">
+          <span class="chip sel"><span class="ms">check</span>All <span class="count">6</span></span>
+          <span class="chip">Video <span class="count">3</span></span>
+          <span class="chip">Docs <span class="count">1</span></span>
+          <span class="chip">Images <span class="count">1</span></span>
+        </div>
+        <div class="list">
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext vid">WEBM</span>
+            <span class="body">
+              <span class="name">A Walk through our forest. [kQot7nZLeJo].webm</span>
+              <span class="meta">video/webm <span class="dot">·</span> 322 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext vid">WEBM</span>
+            <span class="body">
+              <span class="name">Bryce Canyon National Park [7uKucJejmTc].webm</span>
+              <span class="meta">video/webm <span class="dot">·</span> 82.6 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext vid">WEBM</span>
+            <span class="body">
+              <span class="name">Forrest walk with Best Mind Refresh Music Mithran [tEvJKrE4cS0].webm</span>
+              <span class="meta">video/webm <span class="dot">·</span> 93.7 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext doc">PDF</span>
+            <span class="body">
+              <span class="name">Trail map 2026 (annotated).pdf</span>
+              <span class="meta">application/pdf <span class="dot">·</span> 4.1 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext img">JPG</span>
+            <span class="body">
+              <span class="name">cover-shot-full-res.jpg</span>
+              <span class="meta">image/jpeg <span class="dot">·</span> 8.9 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext arc">ZIP</span>
+            <span class="body">
+              <span class="name">raw-footage-batch-03.zip</span>
+              <span class="meta">application/zip <span class="dot">·</span> 1.4 GB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+        </div>
+        <div class="sheetfoot">
+          <span class="sum">6 selected<span>1.9 GB total</span></span>
+          <span class="btn text">Cancel</span>
+          <span class="btn filled"><span class="ms sm">download</span>Download 6</span>
+        </div>
+      </div>
+      <span class="note ok" style="top:600px;left:16px">name + mime + exact size, straight from the folder page</span>
+      <span class="note ok" style="top:640px;left:16px">kind chips from mimeType, never from a guessed ext</span>
+    </div>
+    <div class="gesture"></div>
+  </div>
+  <figcaption>
+    <b class="good">2 · Fixed — native Drive folder listing</b>
+    One plain <code>GET</code> of the folder page yields <code>window['_DRIVE_ivd']</code>, which already
+    carries <em>file id, real filename, mimeType and exact byte size</em> for every entry. No API key,
+    no batch endpoint, no yt-dlp spawn to build the list. Each row's download target becomes
+    <code>drive.google.com/file/d/&lt;id&gt;</code> — the single-file extractor that already works.
+    <span class="tradeoff">Verified against the live folder: 3 entries, names and sizes exactly as shown.</span>
+  </figcaption>
+</figure>
+
+<!-- ============================================================ 3 · FIXED (sniffer on a Drive page) -->
+<figure>
+  <div class="phone">
+    <div class="statusbar">
+      <span>9:38</span>
+      <span class="right"><span class="ms xs">wifi</span><span class="ms xs">signal_cellular_alt</span><span class="ms xs fill">battery_full</span></span>
+    </div>
+    <div class="screen">
+      <div class="sheet">
+        <div class="sheethead">
+          <span class="iconbtn"><span class="ms">close</span></span>
+          <span class="t">3 selected</span>
+          <span class="spacer"></span>
+          <span class="iconbtn"><span class="ms sm">search</span></span>
+          <span class="iconbtn"><span class="ms sm">select_all</span></span>
+          <span class="iconbtn"><span class="ms sm">flip_to_back</span></span>
+          <span class="iconbtn"><span class="ms sm">sort</span></span>
+        </div>
+        <div class="srcstrip">
+          <span class="ms">visibility_off</span>
+          <span><b>21 preview thumbnails hidden</b> — Drive previews are 522×391 crops, never the file</span>
+        </div>
+        <div class="chiprow">
+          <span class="chip sel"><span class="ms">check</span>All <span class="count">3</span></span>
+          <span class="chip">Video <span class="count">3</span></span>
+        </div>
+        <div class="list">
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext vid">WEBM</span>
+            <span class="body">
+              <span class="name">A Walk through our forest. [kQot7nZLeJo].webm</span>
+              <span class="meta">video/webm <span class="dot">·</span> 322 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext vid">WEBM</span>
+            <span class="body">
+              <span class="name">Bryce Canyon National Park [7uKucJejmTc].webm</span>
+              <span class="meta">video/webm <span class="dot">·</span> 82.6 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+          <div class="divider"></div>
+          <div class="row sel">
+            <span class="checkbox on"></span>
+            <span class="ext vid">WEBM</span>
+            <span class="body">
+              <span class="name">Forrest walk with Best Mind Refresh Music Mithran [tEvJKrE4cS0].webm</span>
+              <span class="meta">video/webm <span class="dot">·</span> 93.7 MB <span class="dot">·</span> drive.google.com</span>
+            </span>
+          </div>
+        </div>
+        <div class="sheetfoot">
+          <span class="sum">3 selected<span>498 MB total</span></span>
+          <span class="btn text">Cancel</span>
+          <span class="btn filled"><span class="ms sm">download</span>Download 3</span>
+        </div>
+      </div>
+      <span class="note ok" style="top:340px;left:16px">sniffer defers to the folder lister on Drive pages</span>
+    </div>
+    <div class="gesture"></div>
+  </div>
+  <figcaption>
+    <b class="good">3 · Fixed — the browser Grab button on the same page</b>
+    When the current page is a Drive folder, the FAB routes through the same folder lister instead of
+    the raw sniff store, and the thumbnail CDN host is suppressed. The generic fix underneath it:
+    parse the extension from the <em>last path segment</em> only, and drop a hit whose kind came from a
+    mime hint alone with no filename to show — otherwise every extensionless CDN asset on every site
+    keeps arriving as a nameless row.
+    <span class="tradeoff">Cheap enough to be worth it anyway: the same last-segment rule kills the
+    <code>?</code> variant label in the yt-dlp path too.</span>
+  </figcaption>
+</figure>
+
+</div>
+</body>
+</html>

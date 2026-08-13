@@ -9,6 +9,11 @@
 - Design system: dark M3, burnt-orange primary; tokens at top of design/mockups.html.
 
 ## Next
+- **Google Drive folder broken (device-reproduced 2026-08-13).** Fix in 3 parts, mockups in
+  `design/mockups-drive.html`: (1) ext-from-last-path-segment in SniffStore + Resolver; (2) new
+  `resolve/GoogleDrive.kt` — folder URL -> GET page -> `_DRIVE_ivd` -> items with real name/mime/size,
+  each targeting `drive.google.com/file/d/<id>` with formatId `source/best`; (3) sniffer suppresses
+  `lh3.googleusercontent.com` and defers to the folder lister on Drive pages.
 - Direction A picked (Links/Media tabs): still to build — detection sweep (drop naturalWidth gate, srcset/data-src/picture/CSS backgrounds, MutationObserver rescan, HEAD probe, wider ext maps) + Links tab chips.
 - Paused row shows no percentage ("Paused" only) — add "Paused at 62% · 47 MB/75 MB".
 - Torrent (aria2c, +5.4 MB) deferred; multi-file torrents need a publish path that handles a directory.
@@ -18,6 +23,14 @@
 - Device-verify address bar rework + adblock + https-only (no gradle run yet, review-only pass).
 
 ## Gotchas
+- Extension parsing must run on the **last path segment**, not the whole URL. `SniffStore.kt:49` and
+  `Resolver.kt:93` both do `url.substringAfterLast('.')`, so an extensionless URL returns the tail of
+  the *host* — `https://lh3.googleusercontent.com/u/0/d/<id>` yields ext `com/u/0/d/<id>`.
+- Google Drive folder pages embed the whole listing in `window['_DRIVE_ivd']`: per item
+  `[0]=fileId, [2]=filename-with-ext, [3]=mimeType, [13]=exact bytes`. One plain GET, no API key.
+  yt-dlp's own folder path (scraped key + clients6 batch API) is currently dead.
+- Drive thumbnails live on `lh3.googleusercontent.com/u/0/d/<id>=w522-h391-...` — 522x391 crops, never
+  the file. The sniffer must never offer them as downloads.
 - A WebView that is attached but never told to load anything paints black **over the address bar strip above it** — the bar is laid out and functional (uiautomator sees the EditText and typed text) but completely invisible. Always `loadUrl("about:blank")` at creation, and filter that URL out of address-bar/title/empty-state state.
 - DirectDownloader chunking only starts on a real **206** probe response — an `Accept-Ranges: bytes` header alone is a promise servers break, and a 200 full body written into chunk slot 2+ silently corrupts the merge.
 - Every DirectDownloader request sends `Accept-Encoding: identity`. With gzip on, HttpURLConnection transparently decodes, byte offsets stop matching Content-Length, and every resume lands at the wrong offset.
@@ -43,6 +56,7 @@
 - NavHost for main nav: rejected for now — 3 fixed tabs, plain index state; add when deep links needed.
 
 ## Log
+- 2026-08-13 | Drive folder diagnosed on device, 3 mockups in design/mockups-drive.html | picker showed 21 rows named after Drive thumbnail CDN ids with ext `com/u/0/d/...`; two independent causes (whole-URL ext parse + sniffer treating previews as files), plus yt-dlp's folder extractor dead upstream. Fix chosen: list the folder ourselves from `_DRIVE_ivd`, per-file yt-dlp
 - 2026-08-12 | v0.3.0: DirectDownloader (own HTTP downloader for direct files) + pause/resume + published filenames no longer carry the row id | 42 images meant 42 Python spawns via yt-dlp; resume was impossible because cancel() deleted the .part. Device-verified: 78 MB archive paused at 15%, resumed at 62%, sha256 matches upstream
 - 2026-08-12 | aria2c rejected for now | yt-dlp resumes on its own and detection/queue work needs no new binary; aria2c is only required for torrent, deferred as its own change
 - 2026-08-12 | 3 grab-panel mockups (design/mockups-grab.html) for non-video files; scope set to full detection sweep + reuse of the existing picker sheet | images/pdf/zip were never surfacing: naturalWidth>=200 gate kills lazy images, extensionless a[href] dropped, Accept header used as mime hint
