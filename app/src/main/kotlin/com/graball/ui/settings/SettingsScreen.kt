@@ -43,8 +43,7 @@ import com.graball.engine.activeDownloadCount
 import com.graball.prefs.Prefs
 import kotlinx.coroutines.launch
 
-// placeholder until the repo has a real public URL
-private const val SOURCE_URL = "https://github.com/graball/graball-android"
+private const val SOURCE_URL = "https://github.com/shourovrm/graball"
 
 private val SEARCH_ENGINE_LABELS = linkedMapOf(
     "google" to "Google (English)",

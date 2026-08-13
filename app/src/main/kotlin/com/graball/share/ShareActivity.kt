@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.lifecycleScope
 import com.graball.GraballApp
+import com.graball.MainActivity
 import com.graball.cookies.SignInActivity
 import com.graball.download.Enqueue
 import com.graball.resolve.ResolveResult
@@ -59,7 +60,7 @@ class ShareActivity : ComponentActivity() {
                         val domain = lastUrl?.takeIf { resolvedWithCookies }?.let(::hostOf)
                         Toast.makeText(this, "Queued ${selection.size}", Toast.LENGTH_SHORT).show()
                         // finish() only after the FGS start: API 31+ bans background FGS starts
-                        Enqueue.enqueue(this, selection, cookieDomain = domain, onDone = ::finish)
+                        Enqueue.enqueue(this, selection, cookieDomain = domain, onDone = ::openDownloads)
                     },
                 )
             }
@@ -100,6 +101,17 @@ class ShareActivity : ComponentActivity() {
                 is ResolveResult.Failure -> uiState = ShareUiState.Error(result.error, result.rawLog, url)
             }
         }
+    }
+
+    /** Hands off to the Downloads tab instead of dropping the user back into the host app --
+     *  a queued download the user can't see reads as nothing having happened. */
+    private fun openDownloads() {
+        startActivity(
+            Intent(this, MainActivity::class.java)
+                .putExtra(MainActivity.EXTRA_TAB, MainActivity.TAB_DOWNLOADS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        )
+        finish()
     }
 
     // display-only: copies raw log to clipboard on explicit user tap, never to logcat

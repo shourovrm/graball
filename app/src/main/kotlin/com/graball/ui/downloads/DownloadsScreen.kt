@@ -50,6 +50,9 @@ fun DownloadsScreen(modifier: Modifier = Modifier) {
     val dao = remember { GraballDb.getInstance(context).downloadDao() }
     val downloads by remember { dao.observeAll() }.collectAsStateWithLifecycle(initialValue = emptyList())
     var showDeleteAll by remember { mutableStateOf(false) }
+    // "Delete file" destroys bytes on disk with no undo, so it asks first. "Remove from list" only
+    // drops the DB row and stays a one-tap action.
+    var confirmDeleteFile by remember { mutableStateOf<DownloadEntity?>(null) }
 
     if (downloads.isEmpty()) {
         EmptyState(modifier)
@@ -72,13 +75,30 @@ fun DownloadsScreen(modifier: Modifier = Modifier) {
                     onCancel = { DownloadService.cancel(context, d.id) },
                     onRetry = { DownloadService.retry(context, d.id) },
                     onDelete = { scope.launch { dao.delete(d.id) } },
-                    onDeleteFile = { scope.launch { deleteFile(context, d.mediaUri); dao.delete(d.id) } },
+                    onDeleteFile = { confirmDeleteFile = d },
                     onOpen = { openMedia(context, d.mediaUri) },
                     onPause = { DownloadService.pause(context, d.id) },
                     onResume = { DownloadService.resume(context, d.id) },
                 )
             }
         }
+    }
+
+    confirmDeleteFile?.let { target ->
+        AlertDialog(
+            onDismissRequest = { confirmDeleteFile = null },
+            title = { Text("Delete this file?") },
+            text = { Text("\"${target.title}\" will be removed from your device. This can't be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmDeleteFile = null
+                    scope.launch { deleteFile(context, target.mediaUri); dao.delete(target.id) }
+                }) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteFile = null }) { Text("Cancel") }
+            },
+        )
     }
 
     if (showDeleteAll) {
