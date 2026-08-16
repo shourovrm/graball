@@ -74,6 +74,7 @@
 - NavHost for main nav: rejected for now — 3 fixed tabs, plain index state; add when deep links needed.
 
 ## Log
+- 2026-08-16 | cancel asks confirmation ("Stop this download?" / Keep downloading) like delete-file | one mistap killed progress with no undo since cancel wipes partials; both branches device-verified on a 100MB zip
 - 2026-08-16 | fix: signed-url downloads named from disposition query param, titles percent-decoded — `fileNameOf()` in ResolvedMedia.kt feeds `extOf()` + `directFile()` | GitHub mobile share showed uuid row + unknown_video; device-verified byte-exact 35106607 vs upstream asset
 - 2026-08-13 | v0.4.0: share sheet hands off to the Downloads tab after queueing; per-row "Delete file" now confirms (names the file, "can't be undone"); README; real SOURCE_URL | a queued download the user can't see reads as nothing having happened. MainActivity is singleTask + EXTRA_TAB, so a share while the app sits on Browser still switches to Downloads (both paths device-verified)
 - 2026-08-13 | Drive items download via DirectDownloader (usercontent download / docs export) not yt-dlp; folder regex accepts `/drive/mobile/folders/`; sniffer drops `drive-thirdparty` icon host; picker wraps long filenames to 3 lines | user's 49-item folder resolved but every download would have 400'd, and browser Grab showed 6 rows named after mime subtypes. Verified: .ipynb byte-exact 341025, Sheet exported to a real 1.0 MB xlsx, video still gets 206 + exact Content-Length

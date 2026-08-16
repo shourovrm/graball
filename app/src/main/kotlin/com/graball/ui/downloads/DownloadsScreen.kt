@@ -53,6 +53,8 @@ fun DownloadsScreen(modifier: Modifier = Modifier) {
     // "Delete file" destroys bytes on disk with no undo, so it asks first. "Remove from list" only
     // drops the DB row and stays a one-tap action.
     var confirmDeleteFile by remember { mutableStateOf<DownloadEntity?>(null) }
+    // Cancel throws away downloaded bytes (partials are deleted, retry restarts from zero), so it asks too.
+    var confirmCancel by remember { mutableStateOf<DownloadEntity?>(null) }
 
     if (downloads.isEmpty()) {
         EmptyState(modifier)
@@ -72,7 +74,7 @@ fun DownloadsScreen(modifier: Modifier = Modifier) {
             items(downloads, key = { it.id }) { d ->
                 DownloadCard(
                     entity = d,
-                    onCancel = { DownloadService.cancel(context, d.id) },
+                    onCancel = { confirmCancel = d },
                     onRetry = { DownloadService.retry(context, d.id) },
                     onDelete = { scope.launch { dao.delete(d.id) } },
                     onDeleteFile = { confirmDeleteFile = d },
@@ -97,6 +99,23 @@ fun DownloadsScreen(modifier: Modifier = Modifier) {
             },
             dismissButton = {
                 TextButton(onClick = { confirmDeleteFile = null }) { Text("Cancel") }
+            },
+        )
+    }
+
+    confirmCancel?.let { target ->
+        AlertDialog(
+            onDismissRequest = { confirmCancel = null },
+            title = { Text("Stop this download?") },
+            text = { Text("\"${target.title}\" will stop and its progress will be lost. Retry starts over.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirmCancel = null
+                    DownloadService.cancel(context, target.id)
+                }) { Text("Stop") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmCancel = null }) { Text("Keep downloading") }
             },
         )
     }
