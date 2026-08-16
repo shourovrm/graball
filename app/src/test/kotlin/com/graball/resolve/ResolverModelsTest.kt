@@ -70,6 +70,27 @@ class ResolverModelsTest {
     }
 
     @Test
+    fun `fileNameOf prefers disposition filename hidden in signed-url query params`() {
+        // regression: GitHub mobile shares release-assets.githubusercontent.com signed urls whose
+        // path ends in a uuid; the real name only lives in response-content-disposition
+        val signed = "https://release-assets.githubusercontent.com/github-production-release-asset/44804216/d68bd505-5580-4a1b-b30a-c7e9b21da2bf" +
+            "?sp=r&rscd=attachment%3B+filename%3Dtermux-app_v0.118.3%2Bgithub-debug_arm64-v8a.apk" +
+            "&response-content-disposition=attachment%3B%20filename%3Dtermux-app_v0.118.3%2Bgithub-debug_arm64-v8a.apk&response-content-type=application%2Fvnd.android.package-archive"
+        assertEquals("termux-app_v0.118.3+github-debug_arm64-v8a.apk", fileNameOf(signed))
+        assertEquals("apk", extOf(signed))
+    }
+
+    @Test
+    fun `fileNameOf decodes the path segment`() {
+        assertEquals(
+            "termux-app_v0.118.3+github-debug_arm64-v8a.apk",
+            fileNameOf("https://github.com/termux/termux-app/releases/download/v0.118.3/termux-app_v0.118.3%2Bgithub-debug_arm64-v8a.apk"),
+        )
+        assertEquals("file.mp4", fileNameOf("https://x.com/a/b/file.mp4?y=1"))
+        assertEquals("plain name", fileNameOf("plain name")) // GoogleDrive passes bare filenames through extOf
+    }
+
+    @Test
     fun `GoogleDrive folderId accepts folder urls`() {
         assertEquals(
             "1dQ4sx0-__Nvg65rxTSgQrl7VyW_FZ9QI",

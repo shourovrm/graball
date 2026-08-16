@@ -37,6 +37,10 @@
 - yt-dlp's `-o "...%(title)s.%(ext)s"` doubles the extension whenever the extractor's title already
   ends in one (every Google Drive filename does): `clip.webm` -> `clip.webm.webm`. `publishName()`
   collapses one repeated tail; a real chain like `title.f137.mp4` must survive.
+- GitHub mobile shares release assets as signed `release-assets.githubusercontent.com` urls whose
+  path ends in a bare uuid — the real filename only lives in the `response-content-disposition`
+  query param. `fileNameOf()` parses it out (covers S3/Azure signed urls too); without it the picker
+  row is the uuid and resolve wastes a yt-dlp spawn.
 - Extension parsing must run on the **last path segment**, not the whole URL. `SniffStore.kt:49` and
   `Resolver.kt:93` both do `url.substringAfterLast('.')`, so an extensionless URL returns the tail of
   the *host* — `https://lh3.googleusercontent.com/u/0/d/<id>` yields ext `com/u/0/d/<id>`.
@@ -70,6 +74,7 @@
 - NavHost for main nav: rejected for now — 3 fixed tabs, plain index state; add when deep links needed.
 
 ## Log
+- 2026-08-16 | fix: signed-url downloads named from disposition query param, titles percent-decoded — `fileNameOf()` in ResolvedMedia.kt feeds `extOf()` + `directFile()` | GitHub mobile share showed uuid row + unknown_video; device-verified byte-exact 35106607 vs upstream asset
 - 2026-08-13 | v0.4.0: share sheet hands off to the Downloads tab after queueing; per-row "Delete file" now confirms (names the file, "can't be undone"); README; real SOURCE_URL | a queued download the user can't see reads as nothing having happened. MainActivity is singleTask + EXTRA_TAB, so a share while the app sits on Browser still switches to Downloads (both paths device-verified)
 - 2026-08-13 | Drive items download via DirectDownloader (usercontent download / docs export) not yt-dlp; folder regex accepts `/drive/mobile/folders/`; sniffer drops `drive-thirdparty` icon host; picker wraps long filenames to 3 lines | user's 49-item folder resolved but every download would have 400'd, and browser Grab showed 6 rows named after mime subtypes. Verified: .ipynb byte-exact 341025, Sheet exported to a real 1.0 MB xlsx, video still gets 206 + exact Content-Length
 - 2026-08-13 | Drive folder fix: `extOf()` shared helper, `resolve/GoogleDrive.kt` folder lister, sniffer drops `lh<N>.googleusercontent.com` + `drive.google.com/thumbnail` | Resolver.resolve() owns the Drive branch, so share sheet and browser FAB are both fixed by one edit. 46/46 unit tests green, release APK builds. `IVD_RE` + unescaper checked against the live folder page: 3 items, exact names/mimes/sizes

@@ -1,5 +1,7 @@
 package com.graball.resolve
 
+import java.net.URLDecoder
+
 /** UI-facing domain models — decoupled from yt-dlp's json shape. */
 enum class MediaKind { VIDEO, AUDIO, IMAGE, DOC, ARCHIVE, OTHER }
 
@@ -33,13 +35,28 @@ data class ResolvedItem(
             ?: variants.maxByOrNull { it.height ?: -1 }
 }
 
-/** Extension of the URL's last path segment, lowercased, "" if none. Must NOT be taken from the
+// filename= (or RFC 5987 filename*=) inside a decoded disposition string
+private val DISPOSITION_NAME = Regex("filename\\*?=(?:UTF-8'')?\"?([^\";&]+)", RegexOption.IGNORE_CASE)
+
+/** Name the URL will download as, percent-decoded. A filename= smuggled in the query string
+ *  (signed S3/Azure/GitHub links put Content-Disposition there) wins over the last path segment,
+ *  whose tail can be a bare uuid ("release-assets.githubusercontent.com/.../d68bd505-..."). */
+fun fileNameOf(url: String): String {
+    val query = url.substringAfter('?', "").substringBefore('#')
+    if ("filename" in query.lowercase()) {
+        val decoded = runCatching { URLDecoder.decode(query, "UTF-8") }.getOrDefault("")
+        DISPOSITION_NAME.find(decoded)?.groupValues?.get(1)?.trim()
+            ?.takeIf { it.isNotEmpty() }?.let { return it }
+    }
+    val seg = url.substringBefore('?').substringBefore('#').substringAfterLast('/')
+    // '+' is a literal plus in a path (only queries encode spaces as '+') -- shield it from decode
+    return runCatching { URLDecoder.decode(seg.replace("+", "%2B"), "UTF-8") }.getOrDefault(seg)
+}
+
+/** Extension of the name [fileNameOf] resolves, lowercased, "" if none. Must NOT be taken from the
  *  whole URL: an extensionless path would otherwise return the tail of the host ("com/u/0/d/..."). */
 fun extOf(url: String): String =
-    url.substringBefore('?').substringBefore('#')
-        .substringAfterLast('/')
-        .substringAfterLast('.', "")
-        .lowercase()
+    fileNameOf(url).substringAfterLast('.', "").lowercase()
 
 /** "1080p · mp4 · 213 MB" style label. */
 fun humanSize(bytes: Long?): String? {

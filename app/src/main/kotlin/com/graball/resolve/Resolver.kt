@@ -116,8 +116,8 @@ class Resolver(private val context: Context? = null) {
     }
 
     private fun directFile(url: String): ResolvedItem? {
-        val name = url.substringBefore('?').substringBefore('#').substringAfterLast('/')
-        val ext = extOf(url)
+        val name = fileNameOf(url)
+        val ext = name.substringAfterLast('.', "").lowercase()
         val kind = DIRECT_KINDS[ext] ?: return null
         return ResolvedItem(
             sourceUrl = url,
