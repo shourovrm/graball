@@ -1,78 +1,67 @@
-# graball
+# Graball Web
 
-Android video and file downloader. Share a link to it, pick what you want, get the file.
+A responsive website: paste a public video URL, choose a resolution, prepare a file, then save it to your device. The Python server uses yt-dlp and FFmpeg, following the original Android app's engine approach. No Android SDK is needed.
 
-**[Download the latest APK](https://github.com/shourovrm/graball/releases/latest)** · arm64-v8a · Android 8.0+
+## Run with Docker (recommended)
 
----
-
-## What it does
-
-Share any URL to graball — from a browser, a chat app, anywhere — and it resolves the page into a
-flat list of everything downloadable: video variants, audio, images, documents, archives. Pick with
-checkboxes, download in the background.
-
-Three ways in, one resolver behind all of them:
-
-- **Share sheet** — the primary path. `ACTION_SEND` or an `https` link from any app.
-- **Built-in browser** — navigate, then hit Grab to collect what the page loaded.
-- **Clipboard** — paste a URL directly.
-
-## Features
-
-**Picker** — DownThemAll-style. Filter chips with counts (All / Video / Audio / Images / Docs /
-Archives), text filter, sort by title, size or kind, select all, invert. Adaptive-stream variants
-collapse into one expandable row so you pick the resolution you actually want.
-
-**Downloads** — background service, resumable. Pause and resume mid-file, retry failures, cancel.
-Progress survives closing the app. Finished files land in your gallery or a folder you choose per
-media kind.
-
-**Browser** — ad blocking (StevenBlack hosts), HTTPS-only mode, search engine choice, history
-clearing. It sniffs network requests, the DOM, and `fetch`/`XHR`/`MediaSource` for stream URLs
-yt-dlp can't see.
-
-**Google Drive** — folders are listed natively, with real filenames, types and sizes. Google Docs,
-Sheets and Slides download as `.docx` / `.xlsx` / `.pptx`.
-
-**Sign-in** — for content that needs an account, sign in through the in-app browser. Cookies stay
-scoped to that one domain.
-
-## Install
-
-Grab the APK from [Releases](https://github.com/shourovrm/graball/releases/latest) and install it.
-You will need to allow installing from unknown sources.
-
-Only `arm64-v8a` is published — that covers essentially every phone made since 2017. The APK is
-large (~69 MB) because Python, yt-dlp and FFmpeg are bundled; nothing is downloaded at first run.
-
-## Privacy
-
-- No analytics, no telemetry, no crash reporting, no accounts.
-- Cookies are read only from graball's own WebView. Other apps' cookie jars are unreachable by
-  design.
-- When a download needs your login, cookies for that **one** domain are written to app-private
-  storage for the duration of a single call, then deleted. Never logged, never written to external
-  storage, never included in a bug report.
-- The engine updates only when you explicitly ask it to.
-
-## Build
-
-Needs the Android SDK and a JDK. Signing reads from `keystore.properties` (gitignored) — see
-`app/build.gradle.kts`.
+From the repository root, install Docker Desktop and run:
 
 ```sh
-./gradlew assembleRelease     # signed arm64-v8a release APK
-./gradlew testReleaseUnitTest # unit tests
+docker compose up --build
 ```
 
-There is no debug variant by design. Output lands in `app/build/outputs/apk/release/`.
+Open **http://localhost:8000**. First build downloads the Python dependencies and FFmpeg. Stop with `docker compose down`.
 
-## Built on
+## Run without Docker
 
-[youtubedl-android](https://github.com/junkfood02/youtubedl-android) (yt-dlp + Python + FFmpeg),
-Kotlin, Jetpack Compose, Material 3, Room.
+Install Python 3.11+, FFmpeg, and Node.js (a JS runtime used by some extractors). Make sure `ffmpeg` is on PATH.
 
-## Licence
+```sh
+cd web
+python -m venv .venv
+# macOS/Linux:
+source .venv/bin/activate
+# Windows PowerShell: .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app:app --host 127.0.0.1 --port 8000 --workers 1
+```
 
-GPLv3 — see [LICENSE](LICENSE). Required by youtubedl-android, which graball depends on.
+Open http://localhost:8000. Check `/api/health` to confirm yt-dlp and FFmpeg are installed. Run `python -m unittest discover -s tests -v` to test the API; API tests additionally require `pip install httpx`.
+
+## Hosting
+
+This is a Python container application, not a GitHub Pages/static site. Deploy `web/Dockerfile` to a host that supports long-running Docker containers and FFmpeg, binding port 8000. Use **one process/replica**: selection tokens and job state are in memory. Configure HTTPS in front of the app and preserve the external Host and scheme for same-origin checking (trust forwarded headers only from your own proxy). The Compose file binds only to localhost for local development.
+
+Before exposing a shared/public instance, add access control and per-user quotas at the reverse proxy, and enforce network egress rules that block private, loopback, link-local, reserved, and cloud-metadata addresses for IPv4 and IPv6. The Python network guard checks DNS results and socket destinations (including redirects); native FFmpeg subprocess networking still requires host-level isolation. Disable inherited outbound HTTP proxy environment variables unless they are an explicitly configured, equally restricted egress proxy. Do not give the download container access to internal services or credentials. The included Docker configuration drops privileges, runs with a read-only filesystem, and limits CPU, RAM, processes, and temporary storage.
+
+The first version supports public, completed, individual videos, with two concurrent engine operations, 60-second lookups, 15-minute downloads and a 500 MB final-file limit. The actual container temporary storage limit bounds aggregate disk use. Streaming/muxing can temporarily need twice the final size. Files and tokens expire after an hour and are removed on subsequent API activity. Files are temporary and disappear on container replacement. Clearing the UI does not cancel a server download. Restarting loses jobs. Downloads are bound to a browser session; there is no history database or analytics.
+
+Quality labels represent a maximum resolution. yt-dlp chooses available video/audio at or below that height and merges when needed; MP4 is preferred for merging but some source codecs can produce other containers. Size is not shown before download because sites often omit it.
+
+Website support varies with yt-dlp and site restrictions. Some sites require additional JS runtimes, tokens, login or other configuration. This version does not accept cookies, bypass DRM, download live streams or expand playlists. Updating yt-dlp and rebuilding may restore broken extractors. Download only content you own or have permission to save.
+
+## Files
+
+- `app.py`: same-origin API, sessions, metadata, jobs, temporary file delivery.
+- `engine.py`: isolated yt-dlp entry point and public-address network checks.
+- `static/`: accessible responsive HTML, CSS and JavaScript, without build tools.
+- `tests/`: isolated tests using a mocked extractor; no external video downloads.
+
+GPLv3, consistent with the parent repository. The Android app remains in `app/`.
+
+## Validation of this version
+
+Eighteen isolated API and regression tests passed, including lookup normalization, error/timeout handling, unsupported inputs, same-origin enforcement, session isolation, job completion, file delivery, and expired selections. JavaScript syntax and Python compilation checks passed. The engine and FFmpeg were detected successfully. External video lookup could not be verified in the build workspace because external DNS resolution was unavailable. Browser checks were blocked by the environment's socket restrictions, and Docker was unavailable, so the container build and visual layout remain unverified.
+
+
+## Website repair (web-fix-2)
+
+The original image installed Debian's `nodejs` package. On Debian trixie this is Node 20, while current yt-dlp requires Node >=22 for its YouTube challenge runtime. The Dockerfile now copies Node 22 from the official Node image into a matching Debian bookworm Python image and checks the major version during build. It also installs the current compatible yt-dlp default dependencies on a fresh build.
+
+Generic video extraction can omit codec information for direct MP4/WebM links. Those links are now accepted using their declared video container, while explicit audio-only formats and DRM formats remain excluded. Error messages distinguish missing JavaScript support, host bot checks, access refusals, missing formats, region restrictions and network errors. Raw engine logs stay in server logs; users receive a category and reference ID.
+
+To apply: upload the complete `web` folder from the repair ZIP to the root of the GitHub repository's `website` branch, replacing existing files, then commit. On Render select Manual Deploy > Clear build cache & deploy. Existing service settings remain the same (root `web`, Dockerfile `./Dockerfile`, context `.`, PORT `8000`, FORWARDED_ALLOW_IPS `*`).
+
+After deployment, visit `/api/health`. It should report `build: "web-fix-2"`, `node_supported: true`, `ok: true` and a Node version beginning with v22. Test a small public MP4 first, such as https://www.w3schools.com/html/mov_bbb.mp4, then a public YouTube video. Download preparation and file delivery must also be tested on the deployed container.
+
+The previous deployment was queried during diagnosis: health showed yt-dlp and FFmpeg installed, direct MP4 lookup returned “No downloadable video,” and YouTube returned the generic lookup failure. The new regression tests cover the MP4 metadata shape and runtime/error handling. Docker is unavailable in this workspace, so the new image has not been built here and the patch has not been deployed to the user's Render service. YouTube can independently block cloud-server IPs; updating the runtime does not guarantee access. A HOST_BLOCKED/SOURCE_FORBIDDEN message identifies a source restriction rather than promising every link will work. Do not provide account cookies through public logs or the web UI.

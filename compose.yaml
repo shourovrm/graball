@@ -1,0 +1,16 @@
+services:
+  web:
+    build: ./web
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    init: true
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+      - /data:size=2200m,uid=1000,gid=1000,mode=0700
+    mem_limit: 1g
+    cpus: 2
+    pids_limit: 128
